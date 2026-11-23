@@ -13,7 +13,7 @@ npm run build       # vite build
 有改 DB 就再加：
 
 ```bash
-npm run db:check    # supabase migration list --remote + db diff --linked
+npm run db:check    # supabase migration list --remote + db diff --remote
 ```
 
 ## 檔案結構
