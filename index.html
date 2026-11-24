@@ -4,11 +4,113 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>lammpdagent-dashboard</title>
+    <style>
+      body {
+        margin: 0;
+        font-family: system-ui, -apple-system, 'Segoe UI', 'Noto Sans TC', sans-serif;
+        line-height: 1.6;
+        background: #f6f7f9;
+        color: #1c1e21;
+      }
+      main {
+        max-width: 40rem;
+        margin: 0 auto;
+        padding: 1.5rem 1rem 3rem;
+      }
+      form {
+        display: flex;
+        flex-direction: column;
+        gap: 0.75rem;
+        background: #fff;
+        border: 1px solid #d9dce1;
+        border-radius: 8px;
+        padding: 1rem;
+      }
+      label {
+        font-weight: 600;
+      }
+      input,
+      textarea {
+        font: inherit;
+        padding: 0.5rem;
+        border: 1px solid #b9bec6;
+        border-radius: 6px;
+      }
+      textarea {
+        min-height: 6rem;
+        resize: vertical;
+      }
+      button {
+        font: inherit;
+        font-weight: 600;
+        padding: 0.5rem 1rem;
+        border: none;
+        border-radius: 6px;
+        background: #2563eb;
+        color: #fff;
+        cursor: pointer;
+      }
+      button:disabled {
+        background: #9db4e8;
+        cursor: not-allowed;
+      }
+      .error {
+        color: #b91c1c;
+        margin: 0;
+        font-size: 0.9rem;
+        min-height: 1.2em;
+      }
+      ol {
+        list-style: none;
+        padding: 0;
+        margin: 1rem 0 0;
+        display: flex;
+        flex-direction: column;
+        gap: 0.75rem;
+      }
+      li {
+        background: #fff;
+        border: 1px solid #d9dce1;
+        border-radius: 8px;
+        padding: 0.75rem 1rem;
+      }
+      li span {
+        font-weight: 600;
+      }
+      li p {
+        margin: 0.25rem 0;
+      }
+      li time {
+        color: #6b7280;
+        font-size: 0.85rem;
+      }
+      @media (max-width: 30rem) {
+        main {
+          padding: 1rem 0.75rem 2rem;
+        }
+        form,
+        li {
+          padding: 0.75rem;
+        }
+      }
+    </style>
   </head>
   <body>
     <main>
       <h1>lammpdagent-dashboard</h1>
       <p id="status">檢查環境…</p>
+      <form id="guestbook-form">
+        <label for="name">暱稱</label>
+        <input id="name" name="name" type="text" autocomplete="off" />
+        <p id="name-error" class="error" role="alert"></p>
+        <label for="message">內容</label>
+        <textarea id="message" name="message"></textarea>
+        <p id="message-error" class="error" role="alert"></p>
+        <button id="submit-btn" type="submit">提交留言</button>
+        <p id="form-error" class="error" role="alert"></p>
+      </form>
+      <ol id="guestbook-list"></ol>
+      <p id="guestbook-empty" hidden>暫無留言</p>
     </main>
     <script type="module" src="/src/main.ts"></script>
   </body>
