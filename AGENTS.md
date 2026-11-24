@@ -39,6 +39,21 @@ openspec/    spec 系統（主 spec + change 歷史）
 | `node_modules/`、`dist/` | 建置產物 | `npm i` / `npm run build` |
 | `supabase/.temp/`、`supabase/.branches/` | CLI 暫存 | 自動重建 |
 
+## Deployment (GitHub Pages)
+
+Repo 係 **public**（Pages free plan 要求），push `main` 自動部署。
+
+| 項目 | 值 |
+|---|---|
+| 網址 | https://lammpdagent-collab.github.io/lammpdagent-dashboard/ |
+| Base path | `/lammpdagent-dashboard/` — `vite.config.ts` 的 `base`，改 repo 名要同步改 |
+| Build 環境變數 | GitHub Actions **Variables**（非 Secrets）：`VITE_SUPABASE_URL`、`VITE_SUPABASE_PUBLISHABLE_KEY` |
+| Pages source | GitHub Actions（`build_type=workflow`） |
+
+`deploy.yml` 流程：`configure-pages` → `npm ci` → `npm test` → 檢查 Variables 非空 → 寫 `.env` → `npm run build` → 上傳 artifact → `deploy-pages`。
+
+**轉 public 之前**必須掃 git history 冇 secret：`git log --all -- .env` 要空，並掃 `sb_secret_` 字串。`SUPABASE_SERVICE_ROLE_KEY` 永遠唔可以出現喺 CI 或 client bundle。
+
 ## Database 紀律
 
 | 表面 | 可做 | 唔可做 |

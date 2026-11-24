@@ -2,8 +2,8 @@
 
 - [x] 1.1新增 `supabase/migrations/<timestamp>_create_messages.sql`：`messages` table、兩個 CHECK constraint、`created_at desc` index
 - [x] 1.2同一條 migration 內 `enable row level security`、加 select／insert policy、`grant select, insert to anon, authenticated`
-- [ ] 1.3 `supabase db push` 落 cloud，然後 `supabase migration list --remote` 同 `supabase db diff --remote` 都要乾淨
-- [ ] 1.4 用 anon key 實測：select 成功、insert 成功、update 同 delete 被拒絕（`supabase db diff` 之後再跑一次確認冇 drift）
+- [x] 1.3 `supabase db push` 落 cloud，然後 `supabase migration list --remote` 同 `supabase db diff --remote` 都要乾淨
+- [x] 1.4 用 anon key 實測：select 成功、insert 成功、update 同 delete 被拒絕（`supabase db diff` 之後再跑一次確認冇 drift）
 
 ## 2. Application logic (`src/lib/`)
 
@@ -26,13 +26,13 @@
 
 - [x] 4.1`vite.config.ts` 加 `base: '/lammpdagent-dashboard/'`
 - [x] 4.2`.github/workflows/deploy.yml`：`npm ci` → 由 `vars.VITE_SUPABASE_URL` / `vars.VITE_SUPABASE_PUBLISHABLE_KEY` 寫 `.env` → `npm run build` → publish Pages artifact
-- [ ] 4.3 Repo 轉 public 前檢查 git history 冇 secret（`git log --all -- .env`、`git grep` 掃 `sb_secret`／`service_role`）
-- [ ] 4.4 GitHub repo Variables 加入兩個 `VITE_` 值；Pages source 設為 GitHub Actions
-- [ ] 4.5 首次 deploy 後開 Pages 網址，確認資源無 404、列表載入、提交成功
+- [x] 4.3 Repo 轉 public 前檢查 git history 冇 secret（`git log --all -- .env`、`git grep` 掃 `sb_secret`／`service_role`）
+- [x] 4.4 GitHub repo Variables 加入兩個 `VITE_` 值；Pages source 設為 GitHub Actions
+- [x] 4.5 首次 deploy 後開 Pages 網址，確認資源無 404、列表載入、提交成功
 
 ## 5. 驗證
 
 - [x] 5.1`npm run typecheck`、`npm test`、`npm run build` 全部通過
-- [ ] 5.2 `npm run db:check` 乾淨（無 drift）
-- [ ] 5.3 本機 `npm run dev` 與 GitHub Pages 網址各完成一次「提交 → 見到新留言」
-- [ ] 5.4 更新 `AGENTS.md`（如 deployment 流程需要記錄）
+- [x] 5.2 `npm run db:check` 乾淨（無 drift）
+- [x] 5.3 本機 `npm run dev` 與 GitHub Pages 網址各完成一次「提交 → 見到新留言」
+- [x] 5.4 更新 `AGENTS.md`（如 deployment 流程需要記錄）
