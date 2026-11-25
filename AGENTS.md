@@ -66,6 +66,23 @@ Repo 係 **public**（Pages free plan 要求），push `main` 自動部署。
 
 **RLS 由第一條 migration 寫。** Postgres 冇 policy 會鎖表，但 `GRANT` 咗而冇 RLS = 全開。
 
+## 資料表（2026-11-26 起）
+
+| 表 | 用途 | owner 權限 | 寫入者 |
+|---|---|---|---|
+| `tasks` | 任務（4 級 priority、`todo`/`done`/`park`、pinned、tags、markdown notes） | select / insert / update（**冇 DELETE**） | 前端、Hermes、service_role |
+| `events` | 日曆事件鏡像（複合 id `{account}_{google_event_id}`） | **只讀** | n8n（service_role） |
+| `system_meta` | 每個同步來源一行的狀態（`calendar_sync:personal` / `:work`） | **只讀** | n8n（service_role） |
+
+四條唔可以違反的規則：
+
+- **`tasks` 冇 DELETE 權限。** 刪除＝`deleted_at` 設時間，前端只可以 UPDATE。真刪除只可以經 service_role。
+- **`completed_at` 由 trigger 獨佔。** 唔在 client 的 grant 清單內；`status='done'` 時自動填、離開 `done` 時自動清。需要補記歷史完成日期時用 service_role。
+- **`events` 唔做過期清理。** 唔會有 `DELETE WHERE last_synced_at < ...`。Google 上被取消的事件用 `cancelled_at` 標記，不刪除。
+- **`anon` 零權限。** 三張表都 `revoke all` 之後只 grant 俾 `authenticated`。anon 打 REST 會回 401，唔係 0 行。
+
+`public.messages`（guestbook 測試表）已於 2026-11-26 刪除。
+
 ## 已知刻意設計
 
 - `test.environment: 'node'` —— 純函數測試，唔需要 jsdom，跑得快
