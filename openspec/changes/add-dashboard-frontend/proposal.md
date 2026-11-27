@@ -36,3 +36,12 @@ Phase 2 另外發現兩個資料層缺口，必須同時補：
 - `.github/workflows/deploy.yml` 不變（仍然 `npm test` → `npm run build` → Pages）
 - n8n：日後需新增兩個 workflow（sync `cycle_days`、維護 tag 目錄），但不在本 change 範圍
 - 不動 Google OAuth 設定、不動 Phase 1 已上線的三張表
+
+## 移除說明：guestbook capability 已廢除
+
+`guestbook` 是 Phase 0 的 POC（驗證 Supabase 連通 / RLS / Realtime）。它的 DB 表（`public.messages`）、前端程式碼、測試都在本 change 之前／期間被移除。
+
+**處理方式（依 PROJECT.md §4.3 規則 A）**：整個 capability 廢除，`openspec/specs/guestbook/` 目錄已手動刪除，**不經 `REMOVED` delta** —— 因為全部 requirement 被移除會令 `archive` abort（`Spec must have at least one requirement`），而該 abort 是設計上的 tripwire，不是 bug。
+
+`openspec/changes/archive/2026-11-24-add-guestbook/` 保留，作為歷史記錄。
+

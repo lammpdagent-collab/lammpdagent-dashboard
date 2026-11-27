@@ -2,6 +2,8 @@
 
 項目 conventions —— agent 開工前必讀。
 
+> **唔知去邊度搵答案？先睇 `PROJECT.md`** —— 它記錄每個檔案的角色、權威級別（T1–T6）、衝突裁決程序，以及「某個問題應該查邊份文件」。本檔只講**規則**，`PROJECT.md` 講**地圖**。兩份都要讀，順序：先 `PROJECT.md` 定位，再返本檔睇規則。
+
 ## 驗證鏈（順序，全部要過）
 
 ```bash
@@ -66,6 +68,18 @@ Repo 係 **public**（Pages free plan 要求），push `main` 自動部署。
 
 **RLS 由第一條 migration 寫。** Postgres 冇 policy 會鎖表，但 `GRANT` 咗而冇 RLS = 全開。
 
+## 功能移除（含 drop table）
+
+**移除功能 = 開一個 openspec change 帶 `REMOVED` delta，唔係靜靜刪 code。**
+
+OpenSpec 的 `archive` 只會**加** spec，唔會自動減。所以：
+
+- **部分移除**（一個 capability 內某幾條 requirement）：delta 用 `### REMOVED Requirements`，archive 時會自動扣（實測 `- 1 removed`）。
+- **整個 capability 廢除**：delta 會令 archive **abort**（`Spec must have at least one requirement`）。正確做法係先刪 `openspec/specs/<capability>/` 目錄，再喺 change 內註明「該 capability 已廢除，spec 目錄已刪，不經 delta」。呢個 abort 係 tripwire，唔好當 bug。
+- **`--skip-specs`**：可以歸檔但唔碰 spec —— 只適用於「spec 唔需要改」的 change，唔可以用嚟處理移除。
+
+移除一個 DB 表同時要：① migration 帶 `drop table`；② 刪 `openspec/specs/<capability>/`；③ `AGENTS.md` 表清單同步；④ `PROJECT.md` §7 記錄。
+
 ## 資料表（2026-11-27 起）
 
 | 表 | 用途 | owner 權限 | 寫入者 |
@@ -87,8 +101,6 @@ Repo 係 **public**（Pages free plan 要求），push `main` 自動部署。
 ### owner 身份寫在兩處，改要一齊改
 
 `owner email` 硬編在：① Phase 1 的五條 RLS policy；② `public.is_owner()` function。兩處必須一致 —— 前端不硬編 email，只經 RPC `is_owner()` 判斷。
-
-`public.messages`（guestbook 測試表）已於 2026-11-26 刪除。
 
 `public.messages`（guestbook 測試表）已於 2026-11-26 刪除。
 
