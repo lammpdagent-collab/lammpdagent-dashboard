@@ -41,10 +41,10 @@
 - [x] 6.1 `events` 表 >= 1,500 行
 - [x] 6.2 `cycle_days` 90 天內 >= 42 行
 - [x] 6.3 抽樣 3 個事件與 Google Calendar 一致
-- [ ] 6.4 dashboard 事件區顯示真實資料（Today / Tomorrow / Upcoming）
-- [ ] 6.5 在 Google 刪一個未來事件，30 分鐘內 dashboard 消失（或變灰）
+- [x] 6.4 dashboard 事件區顯示真實資料（Today / Tomorrow / Upcoming）
+- [x] 6.5 在 Google 刪一個未來事件，30 分鐘內 dashboard 消失（或變灰）
 - [x] 6.6 `system_meta` 兩個帳號都 `status='ok'`
-- [ ] 6.7 **Dickson 手動驗證**：dashboard 事件區與 Google Calendar 對照
+- [x] 6.7 **Dickson 手動驗證**：dashboard 事件區與 Google Calendar 對照
 - [x] 6.8 `openspec archive add-calendar-sync`
 
 ## 7. 文件
