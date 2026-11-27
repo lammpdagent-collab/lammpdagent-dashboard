@@ -1,0 +1,1966 @@
+{
+  "id": "calSyncWf0000001",
+  "name": "calendar-sync",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "cronExpression",
+              "expression": "0 * * * *"
+            }
+          ]
+        }
+      },
+      "id": "c4a6d901-0000-4000-8000-000000000001",
+      "name": "Cron 90d",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [
+        -340,
+        260
+      ]
+    },
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "cronExpression",
+              "expression": "30 * * * *"
+            }
+          ]
+        }
+      },
+      "id": "c4a6d902-0000-4000-8000-000000000002",
+      "name": "Cron 30d",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [
+        -340,
+        380
+      ]
+    },
+    {
+      "parameters": {},
+      "id": "c4a6d903-0000-4000-8000-000000000003",
+      "name": "Manual backfill",
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "position": [
+        -340,
+        500
+      ]
+    },
+    {
+      "parameters": {},
+      "id": "c4a6d904-0000-4000-8000-000000000004",
+      "name": "Manual days90",
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "position": [
+        -340,
+        620
+      ]
+    },
+    {
+      "parameters": {},
+      "id": "c4a6d905-0000-4000-8000-000000000005",
+      "name": "Manual days30",
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "position": [
+        -340,
+        740
+      ]
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "// Run Once for All Items\nconst fired = (name) => { try { return $(name).isExecuted; } catch (e) { return false; } };\n// 支援環境變數覆寫（CLI 執行時指定 preset）\nlet preset = null;\ntry { preset = process.env.N8N_SYNC_PRESET || null; } catch (e) {}\nif (!preset) {\n  preset =\n    fired('Manual backfill') ? 'backfill' :\n    fired('Manual days90')   ? 'days90'   :\n    fired('Manual days30')   ? 'days30'   :\n    fired('Cron 90d')        ? 'days90'   : 'days30';\n}\n\nconst HKT = 8 * 60; // 香港無 DST，固定 +08:00\nconst today = new Date(Date.now() + HKT * 60000).toISOString().slice(0, 10); // HKT 民曆日\nconst addDays = (d, n) => new Date(Date.UTC(\n  +d.slice(0, 4), +d.slice(5, 7) - 1, +d.slice(8, 10),\n) + n * 86400000).toISOString().slice(0, 10);\n\nconst start = preset === 'backfill' ? '2026-08-01' : addDays(today, -1); // 兩者含過去 1 天\nconst horizon = preset === 'days30' ? 30 : 90;\n\n// 全部用 UTC ISO（'Z'）—— PostgREST 唔接受 URL 內嘅 '+'（會被 encode 成 %2B 而 decode 失敗）\nconst toUtc = (ymd, hktHour) => {\n  // ymd 係 HKT 民曆日；hktHour 係 HKT 時數\n  const [y, m, d] = ymd.split('-').map(Number);\n  return new Date(Date.UTC(y, m - 1, d, hktHour - 8, 0, 0)).toISOString();\n};\n\nreturn [{\n  json: {\n    preset,\n    window_days: horizon,\n    time_min: toUtc(start, 0),                       // HKT 00:00 → UTC\n    time_max: toUtc(addDays(today, horizon), 0),     // HKT 00:00 → UTC\n    batch_time: new Date().toISOString(),\n  },\n}];"
+      },
+      "id": "c4a6d906-0000-4000-8000-000000000006",
+      "name": "Config",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -80,
+        500
+      ]
+    },
+    {
+      "parameters": {
+        "resource": "event",
+        "operation": "getAll",
+        "calendar": {
+          "__rl": true,
+          "value": "lammpd.agent@gmail.com",
+          "mode": "id"
+        },
+        "returnAll": true,
+        "options": {
+          "simplifyOutput": false,
+          "singleEvents": true
+        },
+        "timeMin": "={{ $('Config').first().json.time_min }}",
+        "timeMax": "={{ $('Config').first().json.time_max }}"
+      },
+      "id": "c4a6d907-0000-4000-8000-000000000007",
+      "name": "Fetch primary",
+      "type": "n8n-nodes-base.googleCalendar",
+      "typeVersion": 1.3,
+      "position": [
+        200,
+        260
+      ],
+      "onError": "continueErrorOutput",
+      "credentials": {
+        "googleCalendarOAuth2Api": {
+          "id": "Krkcl8tNeQi3eQkX",
+          "name": "Google Calendar account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "resource": "event",
+        "operation": "getAll",
+        "calendar": {
+          "__rl": true,
+          "value": "zh-hk.hong_kong#holiday@group.v.calendar.google.com",
+          "mode": "id",
+          "cachedResultName": "香港節慶假日"
+        },
+        "returnAll": true,
+        "options": {
+          "simplifyOutput": false,
+          "singleEvents": true
+        },
+        "timeMin": "={{ $('Config').first().json.time_min }}",
+        "timeMax": "={{ $('Config').first().json.time_max }}"
+      },
+      "id": "c4a6d908-0000-4000-8000-000000000008",
+      "name": "Fetch holidays",
+      "type": "n8n-nodes-base.googleCalendar",
+      "typeVersion": 1.3,
+      "position": [
+        200,
+        380
+      ],
+      "onError": "continueErrorOutput",
+      "credentials": {
+        "googleCalendarOAuth2Api": {
+          "id": "Krkcl8tNeQi3eQkX",
+          "name": "Google Calendar account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "resource": "event",
+        "operation": "getAll",
+        "calendar": {
+          "__rl": true,
+          "value": "family13377765887704111821@group.calendar.google.com",
+          "mode": "id",
+          "cachedResultName": "家人"
+        },
+        "returnAll": true,
+        "options": {
+          "simplifyOutput": false,
+          "singleEvents": true
+        },
+        "timeMin": "={{ $('Config').first().json.time_min }}",
+        "timeMax": "={{ $('Config').first().json.time_max }}"
+      },
+      "id": "c4a6d909-0000-4000-8000-000000000009",
+      "name": "Fetch family",
+      "type": "n8n-nodes-base.googleCalendar",
+      "typeVersion": 1.3,
+      "position": [
+        200,
+        500
+      ],
+      "onError": "continueErrorOutput",
+      "credentials": {
+        "googleCalendarOAuth2Api": {
+          "id": "Krkcl8tNeQi3eQkX",
+          "name": "Google Calendar account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "mode": "manual",
+        "includeOtherFields": true,
+        "assignments": {
+          "assignments": [
+            {
+              "id": "a0f1e001-0000-4000-8000-0000000000a1",
+              "name": "message",
+              "value": "={{ $json.error?.message ?? JSON.stringify($json) }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "c4a6d90a-0000-4000-8000-000000000010",
+      "name": "Flags personal",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        440,
+        380
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://tmgnqofsyyaigilqkonv.supabase.co/rest/v1/system_meta",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "on_conflict",
+              "value": "key"
+            }
+          ]
+        },
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Prefer",
+              "value": "resolution=merge-duplicates,return=minimal"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={ \"key\": \"calendar_sync:personal\", \"last_run_at\": \"{{ $('Config').first().json.batch_time }}\", \"status\": \"error\", \"message\": {{ JSON.stringify($json.message ?? 'unknown error') }} }",
+        "options": {}
+      },
+      "id": "c4a6d92c-0000-4000-8000-000000000044",
+      "name": "Meta error personal",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        640,
+        380
+      ],
+      "onError": "continueRegularOutput",
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "SupaServiceRole01",
+          "name": "Supabase service_role"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "method": "GET",
+        "url": "https://tmgnqofsyyaigilqkonv.supabase.co/rest/v1/events",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "select",
+              "value": "id,last_synced_at,cancelled_at"
+            },
+            {
+              "name": "account_key",
+              "value": "eq.personal"
+            },
+            {
+              "name": "and",
+              "value": "=(start_time.gte.{{ $('Config').first().json.time_min }},start_time.lt.{{ $('Config').first().json.time_max }})"
+            }
+          ]
+        },
+        "options": {
+          "pagination": {
+            "pagination": {
+              "paginationMode": "updateAParameterInEachRequest",
+              "parameters": {
+                "parameters": [
+                  {
+                    "type": "qs",
+                    "name": "offset",
+                    "value": "={{ $pageCount * 1000 }}"
+                  }
+                ]
+              },
+              "paginationCompleteWhen": "other",
+              "completeExpression": "={{ Array.isArray($response.body) ? $response.body.length < 1000 : true }}"
+            }
+          }
+        }
+      },
+      "id": "c4a6d90b-0000-4000-8000-000000000011",
+      "name": "DB GET personal",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        200,
+        620
+      ],
+      "onError": "continueErrorOutput",
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "SupaServiceRole01",
+          "name": "Supabase service_role"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "mode": "append"
+      },
+      "id": "c4a6d928-0000-4000-8000-000000000040",
+      "name": "Merge P1",
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 3,
+      "position": [
+        440,
+        620
+      ]
+    },
+    {
+      "parameters": {
+        "mode": "append"
+      },
+      "id": "c4a6d929-0000-4000-8000-000000000041",
+      "name": "Merge P2",
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 3,
+      "position": [
+        680,
+        620
+      ]
+    },
+    {
+      "parameters": {
+        "mode": "append"
+      },
+      "id": "c4a6d92a-0000-4000-8000-000000000042",
+      "name": "Merge P3",
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 3,
+      "position": [
+        920,
+        620
+      ]
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "// Run Once for All Items\nconst cfg = $('Config').first().json;\nconst ACCOUNT = 'personal';\n\n// 1) 錯誤旗標 → abort：唔寫任何嘢（防止 partial fetch 造成錯誤 cleanup）\nconst f = $('Flags personal');\nconst flags = f.isExecuted ? f.all().map(i => i.json) : [];\nif (flags.length > 0) {\n  return [{ json: { outcome: 'error', message: flags.map(x => x.message).join(' | ') } }];\n}\n\n// 2) 收 Google 事件，逐 source_calendar 出名（保證 tagging 準確）\nconst sources = [\n  ['primary',     $('Fetch primary').all()],\n  ['香港節慶假日', $('Fetch holidays').all()],\n  ['家人',        $('Fetch family').all()],\n];\n\nfunction normalize(e, sourceCalendar) {\n  const allDay = Boolean(e.start?.date) && !e.start?.dateTime;\n  return {\n    id: `${ACCOUNT}_${e.id}`,                       // 符合 id check（account_key‖'_'‖google_event_id）\n    google_event_id: e.id,\n    title: e.summary ?? '',\n    description: e.description ?? '',\n    start_time: allDay ? `${e.start.date}T00:00:00+08:00` : e.start.dateTime,\n    end_time:   allDay ? `${e.end.date}T00:00:00+08:00`   : e.end.dateTime, // end.date 係 exclusive\n    is_all_day: allDay,\n    location: e.location ?? '',\n    account_key: ACCOUNT,\n    source_calendar: sourceCalendar,\n    relevance: 'context',                            // Phase 3 全部用 default，唔派生 linked/noise\n    calendar_status: e.status ?? 'confirmed',\n    cancelled_at: null,                              // 寫入的行必然 live（Google 有就係存在）\n    last_synced_at: cfg.batch_time,\n    _updated: e.updated ?? '',                       // 內部欄位，POST 時剝走\n  };\n}\n\nconst gEvents = [];\nconst byCalendar = {};\nfor (const [src, items] of sources) {\n  byCalendar[src] = items.length;\n  for (const it of items) {\n    if (it.json?.id) gEvents.push(normalize(it.json, src));\n  }\n}\n\n// 3) DB 現狀（分頁 items 攤平；GET 冇 filter cancelled_at，gate 同 diff 共用）\nconst dbRows = $('DB GET personal').all()\n  .flatMap(i => Array.isArray(i.json) ? i.json : [i.json]);\nconst db = new Map(dbRows.map(r => [r.id, r]));\n\n// 4) D3 增量 gate：新事件 / cancelled 重現（無條件重設）/ updated > last_synced_at\nconst toWrite = gEvents.filter(ev => {\n  const d = db.get(ev.id);\n  if (!d) return true;                              // INSERT\n  if (d.cancelled_at != null) return true;          // 重現 → upsert 帶 cancelled_at:null 重設\n  return new Date(ev._updated) > new Date(d.last_synced_at);  // UPDATE；其餘跳過\n});\n\n// 5) D2 cleanup diff：DB 窗口內 live ids − Google 返回 ids\nconst googleIds = new Set(gEvents.map(e => e.id));\nconst missing = dbRows\n  .filter(r => r.cancelled_at == null && !googleIds.has(r.id))\n  .map(r => r.id);\n\n// 6) 輸出：rows chunks（500/POST）＋ 一個 cleanup item（missing 同 detail 搭呢件行）\nconst detail = {\n  preset: cfg.preset, window_days: cfg.window_days,\n  time_min: cfg.time_min, time_max: cfg.time_max,\n  fetched: gEvents.length, by_calendar: byCalendar,\n  written: toWrite.length, cancelled: missing.length,\n};\nconst out = [];\nfor (let i = 0; i < toWrite.length; i += 500) {\n  out.push({ json: { rows: toWrite.slice(i, i + 500) } });\n}\nout.push({ json: { missing, batch_time: cfg.batch_time, detail } });\nreturn out;"
+      },
+      "id": "c4a6d90c-0000-4000-8000-000000000012",
+      "name": "Normalize personal",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        680,
+        380
+      ],
+      "onError": "continueErrorOutput"
+    },
+    {
+      "parameters": {
+        "rules": {
+          "values": [
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "loose"
+                },
+                "conditions": [
+                  {
+                    "id": "swp-c1",
+                    "leftValue": "={{ Boolean($json.rows?.length > 0) }}",
+                    "rightValue": "",
+                    "operator": {
+                      "type": "boolean",
+                      "operation": "true",
+                      "singleValue": true
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "rows"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "loose"
+                },
+                "conditions": [
+                  {
+                    "id": "swp-c2",
+                    "leftValue": "={{ Boolean(Array.isArray($json.missing) && $json.missing.length > 0) }}",
+                    "rightValue": "",
+                    "operator": {
+                      "type": "boolean",
+                      "operation": "true",
+                      "singleValue": true
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "cleanup"
+            }
+          ]
+        },
+        "options": {
+          "fallbackOutput": "extra",
+          "renameFallbackOutput": "abort"
+        }
+      },
+      "id": "c4a6d90d-0000-4000-8000-000000000013",
+      "name": "Switch personal",
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3.3,
+      "position": [
+        920,
+        380
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://tmgnqofsyyaigilqkonv.supabase.co/rest/v1/events",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "on_conflict",
+              "value": "id"
+            }
+          ]
+        },
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Prefer",
+              "value": "resolution=merge-duplicates,return=minimal"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify($json.rows?.map(({ _updated, ...r }) => r) ?? []) }}",
+        "options": {}
+      },
+      "id": "c4a6d90e-0000-4000-8000-000000000014",
+      "name": "POST events personal",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1160,
+        260
+      ],
+      "onError": "continueErrorOutput",
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "SupaServiceRole01",
+          "name": "Supabase service_role"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "mode": "manual",
+        "includeOtherFields": true,
+        "assignments": {
+          "assignments": []
+        },
+        "options": {}
+      },
+      "id": "c4a6d90f-0000-4000-8000-000000000015",
+      "name": "Marker personal",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        1160,
+        500
+      ]
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "// Run Once for All Items — POST 有錯 → 攔住 cleanup（D12 fail-closed）\nconst mk = $('Marker personal');\nif (mk.isExecuted) {\n  const msg = mk.all().map(i => i.json?.error?.message ?? 'upsert failed').join(' | ');\n  return [{ json: { outcome: 'error', message: msg } }];\n}\nreturn $input.all();"
+      },
+      "id": "c4a6d910-0000-4000-8000-000000000016",
+      "name": "Gate personal",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1400,
+        380
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose"
+          },
+          "conditions": [
+            {
+              "id": "ifp-c1",
+              "leftValue": "={{ $json.missing !== undefined }}",
+              "rightValue": "",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "c4a6d911-0000-4000-8000-000000000017",
+      "name": "IF cleanup personal",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        1640,
+        380
+      ]
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "// Run Once for All Items — missing ids 切 50/chunk（in.() URL 長度限制）\nconst ids = $json.missing;\nconst chunks = [];\nfor (let i = 0; i < ids.length; i += 50) chunks.push(ids.slice(i, i + 50));\nreturn chunks.map(c => ({\n  json: {\n    idsIn: 'in.(' + c.map(x => `\"${x}\"`).join(',') + ')',\n    batch_time: $json.batch_time,\n  },\n}));"
+      },
+      "id": "c4a6d912-0000-4000-8000-000000000018",
+      "name": "Chunk ids personal",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1880,
+        260
+      ]
+    },
+    {
+      "parameters": {
+        "method": "PATCH",
+        "url": "https://tmgnqofsyyaigilqkonv.supabase.co/rest/v1/events",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "id",
+              "value": "={{ $json.idsIn }}"
+            },
+            {
+              "name": "account_key",
+              "value": "eq.personal"
+            },
+            {
+              "name": "and",
+              "value": "=(start_time.gte.{{ $('Config').first().json.time_min }},start_time.lt.{{ $('Config').first().json.time_max }})"
+            },
+            {
+              "name": "cancelled_at",
+              "value": "is.null"
+            }
+          ]
+        },
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Prefer",
+              "value": "return=minimal"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={ \"cancelled_at\": \"{{ $json.batch_time }}\", \"last_synced_at\": \"{{ $json.batch_time }}\" }",
+        "options": {}
+      },
+      "id": "c4a6d913-0000-4000-8000-000000000019",
+      "name": "PATCH cancel personal",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        2120,
+        260
+      ],
+      "onError": "continueErrorOutput",
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "SupaServiceRole01",
+          "name": "Supabase service_role"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://tmgnqofsyyaigilqkonv.supabase.co/rest/v1/system_meta",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "on_conflict",
+              "value": "key"
+            }
+          ]
+        },
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Prefer",
+              "value": "resolution=merge-duplicates,return=minimal"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={ \"key\": \"calendar_sync:personal\", \"last_run_at\": \"{{ $('Config').first().json.batch_time }}\", \"status\": \"{{ $json.outcome === 'error' || $json.error ? 'error' : 'ok' }}\", \"message\": {{ JSON.stringify($json.message ?? $json.error?.message ?? null) }}, \"detail\": {{ JSON.stringify($('Normalize personal').all().find(i => i.json.detail)?.json.detail ?? {}) }} }",
+        "options": {}
+      },
+      "id": "c4a6d914-0000-4000-8000-000000000020",
+      "name": "Meta personal",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        2360,
+        380
+      ],
+      "onError": "continueErrorOutput",
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "SupaServiceRole01",
+          "name": "Supabase service_role"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "method": "GET",
+        "url": "https://www.googleapis.com/calendar/v3/users/me/calendarList",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "googleOAuth2Api",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "maxResults",
+              "value": "100"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "c4a6d915-0000-4000-8000-000000000021",
+      "name": "GET calendarList work",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        200,
+        760
+      ],
+      "onError": "continueErrorOutput",
+      "credentials": {
+        "googleOAuth2Api": {
+          "id": "GCalWorkRO000001",
+          "name": "Google Calendar work (readonly)"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "fieldToSplitOut": "items",
+        "include": "noOtherFields",
+        "options": {}
+      },
+      "id": "c4a6d916-0000-4000-8000-000000000022",
+      "name": "SplitOut calendars",
+      "type": "n8n-nodes-base.splitOut",
+      "typeVersion": 1,
+      "position": [
+        440,
+        760
+      ]
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "// Run Once for All Items — design D5：精準排除，其餘 6 個全讀（含 0 事件）\nconst out = $input.all().map(i => i.json)\n  .filter(c => c?.id && typeof c.summary === 'string')\n  .filter(c => c.summary.trim() !== '5. 教師生日')\n  .map(c => ({ json: { calendarId: c.id, source_calendar: c.summary.trim() } }));\nif (out.length === 0) throw new Error('work calendarList 過濾後 0 個日曆 —— summary 命名或 scope 異常');\nreturn out;"
+      },
+      "id": "c4a6d917-0000-4000-8000-000000000023",
+      "name": "Filter work calendars",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        680,
+        760
+      ],
+      "onError": "continueErrorOutput"
+    },
+    {
+      "parameters": {
+        "method": "GET",
+        "url": "=https://www.googleapis.com/calendar/v3/calendars/{{ encodeURIComponent($json.calendarId) }}/events",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "googleOAuth2Api",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "timeMin",
+              "value": "={{ $('Config').first().json.time_min }}"
+            },
+            {
+              "name": "timeMax",
+              "value": "={{ $('Config').first().json.time_max }}"
+            },
+            {
+              "name": "singleEvents",
+              "value": "true"
+            },
+            {
+              "name": "orderBy",
+              "value": "startTime"
+            },
+            {
+              "name": "showDeleted",
+              "value": "false"
+            },
+            {
+              "name": "maxResults",
+              "value": "2500"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "c4a6d918-0000-4000-8000-000000000024",
+      "name": "GET work events",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        920,
+        760
+      ],
+      "onError": "continueErrorOutput",
+      "credentials": {
+        "googleOAuth2Api": {
+          "id": "GCalWorkRO000001",
+          "name": "Google Calendar work (readonly)"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "// Run Once for All Items — HTTP response item ↔ calendar item 一一對應（經 pairedItem）\nreturn $input.all().map((item, i) => {\n  const cal = $('Filter work calendars').itemMatching(i).json;\n  return { json: { ...item.json, source_calendar: cal.source_calendar, _calId: cal.calendarId } };\n});\n// 註：若某日曆 fetch 出錯，Flags work 已觸發 → Normalize work 會 abort，6→6 對齊前提成立"
+      },
+      "id": "c4a6d919-0000-4000-8000-000000000025",
+      "name": "Tag work events",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1160,
+        760
+      ]
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "// Run Once for All Items — flatten Google events response：每個 event 變一個 item，保留 source_calendar / _calId\nconst out = [];\nfor (const item of $input.all()) {\n  const j = item.json;\n  for (const ev of j.items || []) {\n    out.push({ json: {\n      ...ev,\n      source_calendar: j.source_calendar,\n      _calId: j._calId,\n      ...(j.nextPageToken ? { nextPageToken: j.nextPageToken } : {}),\n    } });\n  }\n}\nif (out.length === 0) throw new Error('work events flatten 後 0 個事件');\nreturn out;"
+      },
+      "id": "c4a6d91a-0000-4000-8000-000000000026",
+      "name": "SplitOut work events",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1400,
+        760
+      ]
+    },
+    {
+      "parameters": {
+        "mode": "manual",
+        "includeOtherFields": true,
+        "assignments": {
+          "assignments": [
+            {
+              "id": "a0f1e002-0000-4000-8000-0000000000a2",
+              "name": "message",
+              "value": "={{ $json.error?.message ?? JSON.stringify($json) }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "c4a6d91b-0000-4000-8000-000000000027",
+      "name": "Flags work",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        920,
+        900
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://tmgnqofsyyaigilqkonv.supabase.co/rest/v1/system_meta",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "on_conflict",
+              "value": "key"
+            }
+          ]
+        },
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Prefer",
+              "value": "resolution=merge-duplicates,return=minimal"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={ \"key\": \"calendar_sync:work\", \"last_run_at\": \"{{ $('Config').first().json.batch_time }}\", \"status\": \"error\", \"message\": {{ JSON.stringify($json.message ?? 'unknown error') }} }",
+        "options": {}
+      },
+      "id": "c4a6d92d-0000-4000-8000-000000000045",
+      "name": "Meta error work",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1120,
+        900
+      ],
+      "onError": "continueRegularOutput",
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "SupaServiceRole01",
+          "name": "Supabase service_role"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "method": "GET",
+        "url": "https://tmgnqofsyyaigilqkonv.supabase.co/rest/v1/events",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "select",
+              "value": "id,last_synced_at,cancelled_at"
+            },
+            {
+              "name": "account_key",
+              "value": "eq.work"
+            },
+            {
+              "name": "and",
+              "value": "=(start_time.gte.{{ $('Config').first().json.time_min }},start_time.lt.{{ $('Config').first().json.time_max }})"
+            }
+          ]
+        },
+        "options": {
+          "pagination": {
+            "pagination": {
+              "paginationMode": "updateAParameterInEachRequest",
+              "parameters": {
+                "parameters": [
+                  {
+                    "type": "qs",
+                    "name": "offset",
+                    "value": "={{ $pageCount * 1000 }}"
+                  }
+                ]
+              },
+              "paginationCompleteWhen": "other",
+              "completeExpression": "={{ Array.isArray($response.body) ? $response.body.length < 1000 : true }}"
+            }
+          }
+        }
+      },
+      "id": "c4a6d91c-0000-4000-8000-000000000028",
+      "name": "DB GET work",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        440,
+        900
+      ],
+      "onError": "continueErrorOutput",
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "SupaServiceRole01",
+          "name": "Supabase service_role"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "mode": "append"
+      },
+      "id": "c4a6d92b-0000-4000-8000-000000000043",
+      "name": "Merge W1",
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 3,
+      "position": [
+        1400,
+        940
+      ]
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "// Run Once for All Items\nconst cfg = $('Config').first().json;\nconst ACCOUNT = 'work';\n\n// 1) 錯誤旗標 → abort：唔寫任何嘢（防止 partial fetch 造成錯誤 cleanup）\nconst f = $('Flags work');\nconst flags = f.isExecuted ? f.all().map(i => i.json) : [];\nif (flags.length > 0) {\n  return [{ json: { outcome: 'error', message: flags.map(x => x.message).join(' | ') } }];\n}\n\nfunction normalize(e, sourceCalendar) {\n  const allDay = Boolean(e.start?.date) && !e.start?.dateTime;\n  return {\n    id: `${ACCOUNT}_${e.id}`,                       // 符合 id check（account_key‖'_'‖google_event_id）\n    google_event_id: e.id,\n    title: e.summary ?? '',\n    description: e.description ?? '',\n    start_time: allDay ? `${e.start.date}T00:00:00+08:00` : e.start.dateTime,\n    end_time:   allDay ? `${e.end.date}T00:00:00+08:00`   : e.end.dateTime, // end.date 係 exclusive\n    is_all_day: allDay,\n    location: e.location ?? '',\n    account_key: ACCOUNT,\n    source_calendar: sourceCalendar,\n    relevance: 'context',                            // Phase 3 全部用 default，唔派生 linked/noise\n    calendar_status: e.status ?? 'confirmed',\n    cancelled_at: null,                              // 寫入的行必然 live（Google 有就係存在）\n    last_synced_at: cfg.batch_time,\n    _updated: e.updated ?? '',                       // 內部欄位，POST 時剝走\n  };\n}\n\n// 2) 收 Google 事件（SplitOut 後每個 item 一個事件，source_calendar 已 tag 好）\nconst events = $('SplitOut work events').all().map(i => i.json).filter(e => e?.id);\n\n// nextPageToken guard：截流咗嘅資料唔好拿來 diff（cleanup 會誤標）\nif (events.some(e => 'nextPageToken' in e)) {\n  return [{ json: { outcome: 'error',\n    message: 'work 單日曆事件量超出 maxResults=2500 —— 需要加分頁先可以安全 cleanup' } }];\n}\n\nconst byCalendar = {};\nfor (const e of events) byCalendar[e.source_calendar] = (byCalendar[e.source_calendar] ?? 0) + 1;\nconst gEvents = events.map(e => normalize(e, e.source_calendar));\n\n// 3) DB 現狀（分頁 items 攤平；GET 冇 filter cancelled_at，gate 同 diff 共用）\nconst dbRows = $('DB GET work').all()\n  .flatMap(i => Array.isArray(i.json) ? i.json : [i.json]);\nconst db = new Map(dbRows.map(r => [r.id, r]));\n\n// 4) D3 增量 gate：新事件 / cancelled 重現（無條件重設）/ updated > last_synced_at\nconst toWrite = gEvents.filter(ev => {\n  const d = db.get(ev.id);\n  if (!d) return true;                              // INSERT\n  if (d.cancelled_at != null) return true;          // 重現 → upsert 帶 cancelled_at:null 重設\n  return new Date(ev._updated) > new Date(d.last_synced_at);  // UPDATE；其餘跳過\n});\n\n// 5) D2 cleanup diff：DB 窗口內 live ids − Google 返回 ids\nconst googleIds = new Set(gEvents.map(e => e.id));\nconst missing = dbRows\n  .filter(r => r.cancelled_at == null && !googleIds.has(r.id))\n  .map(r => r.id);\n\n// 6) 輸出：rows chunks（500/POST）＋ 一個 cleanup item（missing 同 detail 搭呢件行）\nconst detail = {\n  preset: cfg.preset, window_days: cfg.window_days,\n  time_min: cfg.time_min, time_max: cfg.time_max,\n  fetched: gEvents.length, by_calendar: byCalendar,\n  written: toWrite.length, cancelled: missing.length,\n};\nconst out = [];\nfor (let i = 0; i < toWrite.length; i += 500) {\n  out.push({ json: { rows: toWrite.slice(i, i + 500) } });\n}\nout.push({ json: { missing, batch_time: cfg.batch_time, detail } });\nreturn out;"
+      },
+      "id": "c4a6d91d-0000-4000-8000-000000000029",
+      "name": "Normalize work",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1640,
+        860
+      ],
+      "onError": "continueErrorOutput"
+    },
+    {
+      "parameters": {
+        "rules": {
+          "values": [
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "loose"
+                },
+                "conditions": [
+                  {
+                    "id": "sww-c1",
+                    "leftValue": "={{ Boolean($json.rows?.length > 0) }}",
+                    "rightValue": "",
+                    "operator": {
+                      "type": "boolean",
+                      "operation": "true",
+                      "singleValue": true
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "rows"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "loose"
+                },
+                "conditions": [
+                  {
+                    "id": "sww-c2",
+                    "leftValue": "={{ Boolean(Array.isArray($json.missing) && $json.missing.length > 0) }}",
+                    "rightValue": "",
+                    "operator": {
+                      "type": "boolean",
+                      "operation": "true",
+                      "singleValue": true
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "cleanup"
+            }
+          ]
+        },
+        "options": {
+          "fallbackOutput": "extra",
+          "renameFallbackOutput": "abort"
+        }
+      },
+      "id": "c4a6d91e-0000-4000-8000-000000000030",
+      "name": "Switch work",
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3.3,
+      "position": [
+        1880,
+        860
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://tmgnqofsyyaigilqkonv.supabase.co/rest/v1/events",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "on_conflict",
+              "value": "id"
+            }
+          ]
+        },
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Prefer",
+              "value": "resolution=merge-duplicates,return=minimal"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify($json.rows?.map(({ _updated, ...r }) => r) ?? []) }}",
+        "options": {}
+      },
+      "id": "c4a6d91f-0000-4000-8000-000000000031",
+      "name": "POST events work",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        2120,
+        760
+      ],
+      "onError": "continueErrorOutput",
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "SupaServiceRole01",
+          "name": "Supabase service_role"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "mode": "manual",
+        "includeOtherFields": true,
+        "assignments": {
+          "assignments": []
+        },
+        "options": {}
+      },
+      "id": "c4a6d920-0000-4000-8000-000000000032",
+      "name": "Marker work",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        2120,
+        980
+      ]
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "// Run Once for All Items — POST 有錯 → 攔住 cleanup（D12 fail-closed）\nconst mk = $('Marker work');\nif (mk.isExecuted) {\n  const msg = mk.all().map(i => i.json?.error?.message ?? 'upsert failed').join(' | ');\n  return [{ json: { outcome: 'error', message: msg } }];\n}\nreturn $input.all();"
+      },
+      "id": "c4a6d921-0000-4000-8000-000000000033",
+      "name": "Gate work",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2360,
+        860
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose"
+          },
+          "conditions": [
+            {
+              "id": "ifw-c1",
+              "leftValue": "={{ $json.missing !== undefined }}",
+              "rightValue": "",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "c4a6d922-0000-4000-8000-000000000034",
+      "name": "IF cleanup work",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        2600,
+        860
+      ]
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "// Run Once for All Items — missing ids 切 50/chunk（in.() URL 長度限制）\nconst ids = $json.missing;\nconst chunks = [];\nfor (let i = 0; i < ids.length; i += 50) chunks.push(ids.slice(i, i + 50));\nreturn chunks.map(c => ({\n  json: {\n    idsIn: 'in.(' + c.map(x => `\"${x}\"`).join(',') + ')',\n    batch_time: $json.batch_time,\n  },\n}));"
+      },
+      "id": "c4a6d923-0000-4000-8000-000000000035",
+      "name": "Chunk ids work",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2840,
+        760
+      ]
+    },
+    {
+      "parameters": {
+        "method": "PATCH",
+        "url": "https://tmgnqofsyyaigilqkonv.supabase.co/rest/v1/events",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "id",
+              "value": "={{ $json.idsIn }}"
+            },
+            {
+              "name": "account_key",
+              "value": "eq.work"
+            },
+            {
+              "name": "and",
+              "value": "=(start_time.gte.{{ $('Config').first().json.time_min }},start_time.lt.{{ $('Config').first().json.time_max }})"
+            },
+            {
+              "name": "cancelled_at",
+              "value": "is.null"
+            }
+          ]
+        },
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Prefer",
+              "value": "return=minimal"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={ \"cancelled_at\": \"{{ $json.batch_time }}\", \"last_synced_at\": \"{{ $json.batch_time }}\" }",
+        "options": {}
+      },
+      "id": "c4a6d924-0000-4000-8000-000000000036",
+      "name": "PATCH cancel work",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        3080,
+        760
+      ],
+      "onError": "continueErrorOutput",
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "SupaServiceRole01",
+          "name": "Supabase service_role"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://tmgnqofsyyaigilqkonv.supabase.co/rest/v1/system_meta",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "on_conflict",
+              "value": "key"
+            }
+          ]
+        },
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Prefer",
+              "value": "resolution=merge-duplicates,return=minimal"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={ \"key\": \"calendar_sync:work\", \"last_run_at\": \"{{ $('Config').first().json.batch_time }}\", \"status\": \"{{ $json.outcome === 'error' || $json.error ? 'error' : 'ok' }}\", \"message\": {{ JSON.stringify($json.message ?? $json.error?.message ?? null) }}, \"detail\": {{ JSON.stringify($('Normalize work').all().find(i => i.json.detail)?.json.detail ?? {}) }} }",
+        "options": {}
+      },
+      "id": "c4a6d925-0000-4000-8000-000000000037",
+      "name": "Meta work",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        3320,
+        860
+      ],
+      "onError": "continueErrorOutput",
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "SupaServiceRole01",
+          "name": "Supabase service_role"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "// Run Once for All Items\n// 來源：work「2. 學生相關」嘅 Day 標題事件（design D4：唔讀 personal clone）\nconst f = $('Flags work');\nif (f.isExecuted && f.all().length > 0) return [];   // 上游出錯 → 唔派生（Normalize 會報 error）\n\nconst SRC = '2. 學生相關';\nconst all = $('SplitOut work events').all().map(i => i.json).filter(e => e?.id);\nconst events = all.filter(e => e.source_calendar === SRC);\n\n// nextPageToken guard：截流咗嘅資料唔好拿來派生\nif (events.some(e => 'nextPageToken' in e)) return [];\n\n// design D4 regex：prefix match，全形（U+FF21–FF26）＋半形，大小寫不敏感\nconst RE = /^\\s*day\\s*([\\uFF21-\\uFF26A-Fa-f])/i;\n\nfunction toHalf(ch) {\n  const cp = ch.codePointAt(0);\n  return (cp >= 0xff21 && cp <= 0xff26)\n    ? String.fromCharCode(cp - 0xfee0)      // 全形 −0xFEE0 → 半形，符合 DB check ^[A-F]$\n    : ch.toUpperCase();\n}\n\nfunction hktDate(e) {\n  if (e.start?.date) return e.start.date;   // 全日：date 本身就係 HKT 民曆日\n  const dt = e.start?.dateTime ?? '';\n  return new Date(new Date(dt).getTime() + 8 * 3600000).toISOString().slice(0, 10);\n}\n\nconst byDate = new Map();\nlet conflicts = 0;\nfor (const e of events) {\n  const m = RE.exec(e.summary ?? '');\n  if (!m) continue;\n  const label = toHalf(m[1]);\n  if (!/^[A-F]$/.test(label)) continue;     // tripwire：理論上到唔到\n  const date = hktDate(e);\n  const prev = byDate.get(date);\n  if (prev) {\n    if (prev.day_label === label) continue;\n    conflicts += 1;\n    if (new Date(prev._updated) >= new Date(e.updated ?? '')) continue; // 較新嘅事件贏\n  }\n  byDate.set(date, { date, day_label: label, _updated: e.updated ?? '' });\n}\n\nconst rows = [...byDate.values()]\n  .map(({ _updated, ...r }) => r)\n  .sort((a, b) => (a.date < b.date ? -1 : 1));\n\n// tripwire：日曆有 event 但 0 個 Day match → 標題格式/來源異常，寧願 error 都唔靜靜空跑\n// （日曆本身 0 events → 合法，靜靜跳過）\nif (rows.length === 0 && Object.keys(byCalendarCount(events)).length > 0) {\n  throw new Error(`cycle_days：[${SRC}] 有 ${events.length} 個事件但 0 個 Day 標籤 match —— 格式異常`);\n}\nfunction byCalendarCount(evts) { return evts.length ? { n: evts.length } : {}; }\n\nreturn [{ json: { cycle_rows: rows, conflicts, count: rows.length } }];"
+      },
+      "id": "c4a6d926-0000-4000-8000-000000000038",
+      "name": "Derive cycle days",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1640,
+        1040
+      ],
+      "onError": "continueErrorOutput"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://tmgnqofsyyaigilqkonv.supabase.co/rest/v1/cycle_days",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "on_conflict",
+              "value": "date"
+            }
+          ]
+        },
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Prefer",
+              "value": "resolution=merge-duplicates,return=minimal"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify($json.cycle_rows) }}",
+        "options": {}
+      },
+      "id": "c4a6d927-0000-4000-8000-000000000039",
+      "name": "POST cycle days",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1880,
+        1040
+      ],
+      "onError": "continueErrorOutput",
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "SupaServiceRole01",
+          "name": "Supabase service_role"
+        }
+      }
+    }
+  ],
+  "connections": {
+    "Cron 90d": {
+      "main": [
+        [
+          {
+            "node": "Config",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Cron 30d": {
+      "main": [
+        [
+          {
+            "node": "Config",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Manual backfill": {
+      "main": [
+        [
+          {
+            "node": "Config",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Manual days90": {
+      "main": [
+        [
+          {
+            "node": "Config",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Manual days30": {
+      "main": [
+        [
+          {
+            "node": "Config",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Config": {
+      "main": [
+        [
+          {
+            "node": "Fetch primary",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Fetch holidays",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Fetch family",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "GET calendarList work",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "DB GET personal",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "DB GET work",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Fetch primary": {
+      "main": [
+        [
+          {
+            "node": "Merge P1",
+            "type": "main",
+            "index": 1
+          }
+        ],
+        [
+          {
+            "node": "Flags personal",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Fetch holidays": {
+      "main": [
+        [
+          {
+            "node": "Merge P2",
+            "type": "main",
+            "index": 1
+          }
+        ],
+        [
+          {
+            "node": "Flags personal",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Fetch family": {
+      "main": [
+        [
+          {
+            "node": "Merge P3",
+            "type": "main",
+            "index": 1
+          }
+        ],
+        [
+          {
+            "node": "Flags personal",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "DB GET personal": {
+      "main": [
+        [
+          {
+            "node": "Merge P1",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Flags personal",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Merge P1": {
+      "main": [
+        [
+          {
+            "node": "Merge P2",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Merge P2": {
+      "main": [
+        [
+          {
+            "node": "Merge P3",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Merge P3": {
+      "main": [
+        [
+          {
+            "node": "Normalize personal",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Normalize personal": {
+      "main": [
+        [
+          {
+            "node": "Switch personal",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Meta personal",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Switch personal": {
+      "main": [
+        [
+          {
+            "node": "POST events personal",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Gate personal",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Meta personal",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "POST events personal": {
+      "main": [
+        [
+          {
+            "node": "Gate personal",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Marker personal",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Marker personal": {
+      "main": [
+        [
+          {
+            "node": "Gate personal",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Gate personal": {
+      "main": [
+        [
+          {
+            "node": "IF cleanup personal",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "IF cleanup personal": {
+      "main": [
+        [
+          {
+            "node": "Chunk ids personal",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Meta personal",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Chunk ids personal": {
+      "main": [
+        [
+          {
+            "node": "PATCH cancel personal",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "PATCH cancel personal": {
+      "main": [
+        [
+          {
+            "node": "Meta personal",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Meta personal",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "GET calendarList work": {
+      "main": [
+        [
+          {
+            "node": "SplitOut calendars",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Flags work",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "SplitOut calendars": {
+      "main": [
+        [
+          {
+            "node": "Filter work calendars",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Filter work calendars": {
+      "main": [
+        [
+          {
+            "node": "GET work events",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Flags work",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "GET work events": {
+      "main": [
+        [
+          {
+            "node": "Tag work events",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Flags work",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Tag work events": {
+      "main": [
+        [
+          {
+            "node": "SplitOut work events",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "SplitOut work events": {
+      "main": [
+        [
+          {
+            "node": "Merge W1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "DB GET work": {
+      "main": [
+        [
+          {
+            "node": "Merge W1",
+            "type": "main",
+            "index": 1
+          }
+        ],
+        [
+          {
+            "node": "Flags work",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Merge W1": {
+      "main": [
+        [
+          {
+            "node": "Normalize work",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Derive cycle days",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Normalize work": {
+      "main": [
+        [
+          {
+            "node": "Switch work",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Meta work",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Switch work": {
+      "main": [
+        [
+          {
+            "node": "POST events work",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Gate work",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Meta work",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "POST events work": {
+      "main": [
+        [
+          {
+            "node": "Gate work",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Marker work",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Marker work": {
+      "main": [
+        [
+          {
+            "node": "Gate work",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Gate work": {
+      "main": [
+        [
+          {
+            "node": "IF cleanup work",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "IF cleanup work": {
+      "main": [
+        [
+          {
+            "node": "Chunk ids work",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Meta work",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Chunk ids work": {
+      "main": [
+        [
+          {
+            "node": "PATCH cancel work",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "PATCH cancel work": {
+      "main": [
+        [
+          {
+            "node": "Meta work",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Meta work",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Derive cycle days": {
+      "main": [
+        [
+          {
+            "node": "POST cycle days",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Meta work",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "POST cycle days": {
+      "main": [
+        [
+          {
+            "node": "Meta work",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Meta work",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Flags personal": {
+      "main": [
+        [
+          {
+            "node": "Meta error personal",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Flags work": {
+      "main": [
+        [
+          {
+            "node": "Meta error work",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "timezone": "Asia/Hong_Kong",
+    "executionOrder": "v1"
+  },
+  "active": true
+}
