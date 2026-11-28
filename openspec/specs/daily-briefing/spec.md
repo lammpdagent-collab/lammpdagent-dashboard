@@ -61,6 +61,7 @@ Briefing 查詢層 SHALL 輸出「即將到」的事件集合，按相關性分�
    - `民`, `Dickson`, `林民平`, `Lam Man Ping`
    - `課程主任`, `PSMCD`
    - `學教`, `常識`, `人文`, `科學`, `國安`, `國家安全`
+   - `觀課`
 3. **context**：其餘
 
 #### Scenario: linked 事件在 5 日後
@@ -82,6 +83,16 @@ Briefing 查詢層 SHALL 輸出「即將到」的事件集合，按相關性分�
 #### Scenario: 全形與半形字母都識別為 Day
 - **WHEN** title 為 `Day B`（半形）或 `DayＢ`（全形）
 - **THEN** 兩者都被判定為 `noise`
+
+#### Scenario: 觀課事件唔論科目都算 linked
+- **WHEN** title 為 `觀課：樂5B科`（唔含原有任何 keyword）且事件在 11 日後
+- **THEN** 它被判定為 `linked`
+- **THEN** 它出現在「即將到」集合內（未超出 7 日窗）
+
+#### Scenario: 觀課事件在 8 日後仍唔顯示
+- **WHEN** title 為 `觀課：樂5B科` 且事件在 8 日後
+- **THEN** 它被判定為 `linked`，但超出 linked 的 7 日窗
+- **THEN** 它唔出現在「即將到」集合內
 
 ### Requirement: 事件去重（跨帳號）
 

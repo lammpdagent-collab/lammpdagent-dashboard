@@ -137,6 +137,14 @@ describe('相關性（R1–R6）', () => {
     expect(classifyRelevance(`測試主題：${keyword}研討`, null)).toBe('linked')
   })
 
+  it('觀課：樂5B科 → linked（唔靠科目名 keyword）', () => {
+    expect(classifyRelevance('觀課：樂5B科', null)).toBe('linked')
+  })
+
+  it('觀課：婷5A英 → linked', () => {
+    expect(classifyRelevance('觀課：婷5A英', null)).toBe('linked')
+  })
+
   it('R4: dickson / psmcd 細楷 → linked（大小寫不敏感）', () => {
     expect(classifyRelevance('dickson 會議', null)).toBe('linked')
     expect(classifyRelevance('psmcd 週會', null)).toBe('linked')

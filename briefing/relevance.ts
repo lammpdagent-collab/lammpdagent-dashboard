@@ -13,6 +13,7 @@ export const RELEVANCE_KEYWORDS = [
   '民', 'Dickson', '林民平', 'Lam Man Ping',
   '課程主任', 'PSMCD',
   '學教', '常識', '人文', '科學', '國安', '國家安全',
+  '觀課',   // 2026-11-28：觀課唔應因科目名唔同而跌出 7 日窗
 ] as const
 
 /**
