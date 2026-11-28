@@ -81,9 +81,11 @@ Parser 規則：
 CI 環境冇 Hermes profile。加 flag 令 CI 可以只檢查 repo 內的部分。
 
 ```
-npm run docs:check           # 全部
-npm run docs:check --no-l4   # 跳過 profile 檢查（CI）
+npm run docs:check              # 全部
+npm run docs:check -- --no-l4   # 跳過 profile 檢查（CI）
 ```
+
+⚠️ **必須用 `--` 分隔**。實測 `npm run docs:check --no-l4` 會被 npm 吞掉，script 收唔到 flag，照跑全量檢查。
 
 ## 失敗輸出格式
 

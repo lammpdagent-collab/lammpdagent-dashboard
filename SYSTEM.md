@@ -236,6 +236,7 @@
 - [ ] 對照 §4，逐個 runtime 實作檔確認仍符合新 spec
 - [ ] **§11 的 L4 同步 task 已在 `tasks.md` 打勾**
 - [ ] 跑 `npm run typecheck && npm test && npm run build`
+- [ ] 跑 `npm run docs:check`，任何 FAIL 都要修完才收工
 - [ ] `openspec validate --all`
 - [ ] 跑 `PROJECT.md §5` 的 Docs DoD 全套
 - [ ] 改過 L4 的話：備份到 `.ai/backup-YYYYMMDD/` + **Dickson 手動觸發一次**驗證（repo 側 agent 觸發唔到 Hermes cron）
@@ -263,7 +264,7 @@ row = db.execute('select nodes, connections from workflow_entity').fetchone()
 snap = json.load(open(r'n8n/workflows/calendar-sync.json', encoding='utf-8'))
 for label, live, s in [('nodes', json.loads(row[0]) if isinstance(row[0], str) else row[0], snap['nodes']),
                        ('conn',  json.loads(row[1]) if isinstance(row[1], str) else row[1], snap['connections'])]:
-    h = lambda x: hashlib.sha256(json.dumps(x, sort_keys=True, ensure_ascii=False).encode()).hexdigest()[:16]
+    h = lambda x: hashlib.sha256(json.dumps(x, sort_keys=True, ensure_ascii=False, separators=(',', ':')).encode()).hexdigest()[:16]
     print(f'{label}: live={h(live)} snap={h(s)} {"OK" if h(live)==h(s) else "DRIFT"}')
 "
   ```
@@ -340,7 +341,12 @@ task 計數係**全檔行式**（`/^[-*]\s+\[[\sx]\]/i`），加 `##` 段落**�
 ⚠️ **不要養成 `--yes` 過關習慣** —— `--yes` 會連真嘅未完成 code task 檢查一齊跳過，
 令 L4 段變成「被迫打假勾」的誘因。
 
-**輔助偵測**：`.skills_prompt_snapshot.json`（47 KB）記錄所有 skill 的描述與 mtime。改完 skill 之後會自動 regenerate——可比較「snapshot 有冇更新」作為「skill 真係改過」的旁證。
+**輔助偵測（兩層）**：
+
+1. **`.skills_prompt_snapshot.json`**（47 KB）記錄所有 skill 的描述與 mtime。改完 skill 之後會自動 regenerate —— 可比較「snapshot 有冇更新」作為「skill 真係改過」的旁證。
+2. **`npm run docs:check`**（`scripts/docs-check.ts`）—— 機械檢查 `SYSTEM.md §4` 對應表的每一行是否在現實中仍成立：spec 檔存在、runtime 路徑存在、`cron/jobs.json` 的 skills 目錄存在、n8n live vs 快照 hash 一致。**任何一項 FAIL 就 exit 1**。
+
+**分工**：`tasks.md` 管「有冇做」，`docs:check` 管「做完之後現實係咪仍然一致」。兩者互補，唔可以互相代替 —— 前者靠打勾（可能打假勾），後者靠磁碟事實（唔可以講大話）。
 
 ---
 

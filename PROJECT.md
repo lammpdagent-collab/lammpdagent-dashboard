@@ -58,6 +58,7 @@
 | `briefing/**`（`fetch.ts`, `relevance.ts`, `SOUL.patch.md`）| **T1** | briefing 查詢層：HKT 時間窗、跨帳號去重、keyword 分類、JSON 契約 | opencode | 每次實作 | ✅ |
 | `n8n/workflows/**` | **T1** | n8n workflow 的版控快照（live 存喺 `~/.n8n/database.sqlite`）| Hermes（export）| n8n UI 改動後 | ✅ |
 | `tests/**` | **T1** | 行為的可執行證明 | opencode | 每次實作 | ✅ |
+| `scripts/**` | **T1** | 開發工具（`docs-check.ts` 等），唔影響 runtime | opencode | 新增工具時 | ✅ |
 | `supabase/migrations/**` | **T1** | **DB schema 唯一權威** | opencode | 每次 schema 變更 | ✅ |
 | `openspec/specs/**` | **T2** | **系統現有能力的權威描述** | archive 流程 | 功能新增/移除時 | ✅ |
 | `openspec/changes/**` | T2 | 進行中的變更提案 | opencode + Hermes | 每個 Phase | ✅ |
@@ -283,7 +284,7 @@ Phase 完成後，**決策內容**唔再改。新決定寫入新 Phase 的記錄
 | D4 | 總覽 §7 Phase 2 仍寫「2–3 日」計劃式，冇標記完成 | 低（T5 背景文件） | 下次開總覽時 | 待補一行 |
 | D5 | 冇 `README.md`（public repo；「由零跑起」冇完整答案） | 中——public repo 第一眼係死頁；新人／新機卡住 | 下次公開分享／Phase 3 前 | 待寫 |
 | D6 | `AGENTS.md` 兩處：① 有一行重複（`public.messages … 已於 2026-11-26 刪除` 出現兩次）；② **缺少指向 §4.3 的指標**——照 AGENTS.md 行事嘅 agent 永遠唔會知「功能移除要開 change」，規則 A 形同虛設 | ① 噪音，令讀者懷疑其他內容；② D1 會重演 | 下次改 AGENTS.md 時（protected file） | ✅ 2026-11-27 已改：重複行已刪；已加 PROJECT.md 指標（開頭）＋「功能移除（含 drop table）」一節（實測行為表） |
-| D7 | ~~n8n workflow JSON 未版控~~ **已於 2026-11-28 解決**。`n8n/workflows/calendar-sync.json`（45 nodes）已入 git，實測 live（`~/.n8n/database.sqlite` 的 `calSyncWf0000001`）與快照 hash 完全相同（nodes `0bf274052563a869`、connections `13dec3739c60cd5e`）。live 只有 1 個 workflow（唔係 7 個）。核對命令見 `SYSTEM.md §7` | — | ✅ 2026-11-28 | 已解決 |
+| D7 | ~~n8n workflow JSON 未版控~~ **已於 2026-11-28 解決**。`n8n/workflows/calendar-sync.json`（45 nodes）已入 git，實測 live（`~/.n8n/database.sqlite` 的 `calSyncWf0000001`）與快照 hash 完全相同（nodes `726fc031e39c855b`、connections `3a9f5c578a8f940a`，以 `npm run docs:check` 為準）。live 只有 1 個 workflow（唔係 7 個）。核對命令見 `SYSTEM.md §7` | — | ✅ 2026-11-28 | 已解決 |
 | D8 | 雲端 DB 冇任何備份（$0 tier 冇 PITR；n8n 未跑；owner 全部任務＋日曆資料得一份） | 誤刪／Supabase 故障／project 被 suspend = 冇得還 | **Phase 3 開始前**（最少手動 export 一次，存 repo 外） | 待處理 |
 | D9 | ~~work calendar credential 仍係 read-write scope~~ **已於 2026-11-27 解決**。改用 `googleOAuth2Api`（scope 欄位可編輯）建新 credential `GCalWorkRO000001`，scope = `https://www.googleapis.com/auth/calendar.readonly`。實測：讀取 7 個日曆成功、寫入（PATCH）回 **HTTP 403 insufficient authentication scopes**。舊 credential `Shzp0fV22UjLVEew` 已標記 DEPRECATED 並清除無效 token | — | ✅ 2026-11-27 | 已解決 |
 
