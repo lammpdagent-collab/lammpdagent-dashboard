@@ -5,7 +5,7 @@
 > 它唔記錄功能細節，只記錄「邊份文件係權威」同「幾時要更新」。
 >
 > **呢份文件自己都會錯。** 它係 T3，唔可以推翻 T1／T2——如果你發現它同現實唔一致，**改它**，唔好為遷就它而扭曲現實。
-> 最後核對：2026-11-27（每次核對完 §2.2 同 §6 就更新呢個日期；日期太舊 = 呢份文件不可信）
+> 最後核對：**2026-11-28**（每次核對完 §2.2 同 §6 就更新呢個日期；日期太舊 = 呢份文件不可信）
 >
 > **點用（給 Dickson）**：唔需要讀完全文。記三件事就夠——① 邊份文件算數：§2.1；② 每個 Phase 收工：跑 §5；③ 有咩知而未清：§7。
 
@@ -17,7 +17,7 @@
 
 - 入口：Telegram（Phase 4）／瀏覽器（已上線）
 - 資料層：Supabase Postgres（雲端 + 本地 docker）
-- 同步：n8n 定時拉 Google Calendar（Phase 3，未實作）
+- 同步：n8n 定時拉 Google Calendar（Phase 3 ✅ 已上線；1 workflow 45 nodes active）
 - 前端：Vite + TypeScript 靜態站，部署 GitHub Pages
 - 硬約束：**$0/月**（免費額度），單一 owner，繁體中文 UI
 
@@ -55,13 +55,16 @@
 | 路徑 | 級別 | 角色 | 誰把關 | 幾時更新 | 進 git |
 |---|---|---|---|---|---|
 | `src/**`, `index.html`, `public/**` | **T1** | 前端實際行為 | opencode | 每次實作 | ✅ |
+| `briefing/**`（`fetch.ts`, `relevance.ts`, `SOUL.patch.md`）| **T1** | briefing 查詢層：HKT 時間窗、跨帳號去重、keyword 分類、JSON 契約 | opencode | 每次實作 | ✅ |
+| `n8n/workflows/**` | **T1** | n8n workflow 的版控快照（live 存喺 `~/.n8n/database.sqlite`）| Hermes（export）| n8n UI 改動後 | ✅ |
 | `tests/**` | **T1** | 行為的可執行證明 | opencode | 每次實作 | ✅ |
 | `supabase/migrations/**` | **T1** | **DB schema 唯一權威** | opencode | 每次 schema 變更 | ✅ |
 | `openspec/specs/**` | **T2** | **系統現有能力的權威描述** | archive 流程 | 功能新增/移除時 | ✅ |
 | `openspec/changes/**` | T2 | 進行中的變更提案 | opencode + Hermes | 每個 Phase | ✅ |
 | `openspec/changes/archive/**` | T4 | 已完成變更的存檔 | archive 流程 | 自動 | ✅ |
 | `AGENTS.md` | **T3** | 開發規則（agent 入口） | Hermes | 規則或表結構變更時 | ✅ |
-| `PROJECT.md`（本檔） | **T3** | 專案地圖 + 文件治理 | Hermes | 新增/移除文件類型時 | ✅ |
+| `PROJECT.md`（本檔） | **T3** | 專案地圖 + 文件治理（**只管 repo 內，L3**）| Hermes | 新增/移除文件類型時 | ✅ |
+| `SYSTEM.md` | **T3** | **全系統地圖**：L0-L6 邊界、spec↔runtime 對應表、跨系統影響矩陣 | Hermes | 改 spec 前／每月 | ✅ |
 | `.github/workflows/deploy.yml` | **T3** | 部署流程 | Hermes | 部署方式變更時 | ✅ |
 | `.env.example` | T3 | 環境變數清單（無真值） | Hermes | 新增變數時 | ✅ |
 | `Documents/Agent/projects/*Phase N 決策記錄.md` | **T4** | 批准憑證（邊個決定、幾時批） | Hermes | **Phase 完成後凍結** | ❌ repo 外 |
@@ -97,7 +100,7 @@
 |---|---|---|
 | 某個功能**應該**點運作（現有能力） | `openspec/specs/<capability>/spec.md` | 總覽、決策記錄 |
 | 某個功能**將會**點運作（進行中） | `openspec/changes/<name>/specs/<cap>/spec.md`（贏過 `specs/`） | — |
-| 某個功能**實際**點運作 | `src/**` + `tests/**` | spec（spec 可能滯後） |
+| 某個功能**實際**點運作 | `src/**` + `tests/**` + `briefing/**` | spec（spec 可能滯後） |
 | 某張 table 有咩欄位/約束/權限 | `supabase/migrations/**` | AGENTS.md（只列摘要） |
 | 為咩揀咗呢個做法 | `Personal Command Center - Phase N 決策記錄.md`（repo 外）＋ `openspec/changes/archive/*/`（有啲決定係喺 change 的 Gate 1 批，唔在決策記錄） | 總覽 |
 | 開發規則、禁止事項 | `AGENTS.md` | — |
@@ -109,9 +112,11 @@
 | 線上版本對唔對得上 main | `curl -sI <pages url>`（200）＋ `git log -1 --format='%h %ci'` | — |
 | 呢個行為有冇 test 保護 | `tests/**`（grep 行為關鍵字） | — |
 | 外部服務 URL / 憑證喺邊 | §6 本檔 | — |
-| **n8n workflow 邏輯** | **現時無權威**（只存在 localhost n8n，未版控 → D7） | — |
+| **n8n workflow 邏輯** | `n8n/workflows/calendar-sync.json`（版控快照，已核實與 live 一致 → D7 已解決）| — |
 | 專案背景、最初 goals | 總覽（T5） | spec |
 | Agent 上次跑咗咩 | `.ai/logs/`（最新檔名 = 時間戳） | — |
+| **改 spec 會唔會整爛 runtime（Hermes profile）** | **`SYSTEM.md §4` 對應表 + §6 影響矩陣** | — |
+| **改一樣嘢要一齊改邊幾處** | **`SYSTEM.md §5`（四類同步點）** | — |
 
 **驗證命令**
 
@@ -255,7 +260,7 @@ Phase 完成後，**決策內容**唔再改。新決定寫入新 Phase 的記錄
 | GitHub repo | `lammpdagent-collab/lammpdagent-dashboard`（**public**，Pages 免費方案要求） | 程式碼 + CI | git credential manager |
 | GitHub Pages | https://lammpdagent-collab.github.io/lammpdagent-dashboard/ | 前端部署 | — |
 | GitHub Actions | `.github/workflows/deploy.yml`，push main 觸發 | test → build → deploy | repo Variables `VITE_SUPABASE_*` |
-| n8n | `http://localhost:5678`，v2.27.4（**workflow JSON 未版控 → D7**） | Phase 3 同步 + Phase 4 cron | n8n 內部 credential store |
+| n8n | `http://localhost:5678`，v2.27.4。live workflow **1 個**（`calSyncWf0000001` 45 nodes），存喺 `~/.n8n/database.sqlite`；**已版控** `n8n/workflows/calendar-sync.json`（D7 已解決）| Phase 3 同步 | n8n 內部 credential store |
 | Google Cloud | project `my-agent-498715` | OAuth client | GCP console |
 | Google Calendar | work 帳號（**readonly**）／personal 帳號（讀寫） | 事件來源 / 寫入目標 | n8n credential |
 | Telegram | Hermes gateway（Phase 4） | 入口 / capture | Hermes config |
@@ -278,7 +283,7 @@ Phase 完成後，**決策內容**唔再改。新決定寫入新 Phase 的記錄
 | D4 | 總覽 §7 Phase 2 仍寫「2–3 日」計劃式，冇標記完成 | 低（T5 背景文件） | 下次開總覽時 | 待補一行 |
 | D5 | 冇 `README.md`（public repo；「由零跑起」冇完整答案） | 中——public repo 第一眼係死頁；新人／新機卡住 | 下次公開分享／Phase 3 前 | 待寫 |
 | D6 | `AGENTS.md` 兩處：① 有一行重複（`public.messages … 已於 2026-11-26 刪除` 出現兩次）；② **缺少指向 §4.3 的指標**——照 AGENTS.md 行事嘅 agent 永遠唔會知「功能移除要開 change」，規則 A 形同虛設 | ① 噪音，令讀者懷疑其他內容；② D1 會重演 | 下次改 AGENTS.md 時（protected file） | ✅ 2026-11-27 已改：重複行已刪；已加 PROJECT.md 指標（開頭）＋「功能移除（含 drop table）」一節（實測行為表） |
-| D7 | n8n workflow JSON 未版控（Phase 3 的 T1 事實只存在 localhost docker） | 高——instance 冇咗，同步邏輯就冇咗，而且冇 spec 可以重建 | **Phase 3 開始前** | 待處理 |
+| D7 | ~~n8n workflow JSON 未版控~~ **已於 2026-11-28 解決**。`n8n/workflows/calendar-sync.json`（45 nodes）已入 git，實測 live（`~/.n8n/database.sqlite` 的 `calSyncWf0000001`）與快照 hash 完全相同（nodes `0bf274052563a869`、connections `13dec3739c60cd5e`）。live 只有 1 個 workflow（唔係 7 個）。核對命令見 `SYSTEM.md §7` | — | ✅ 2026-11-28 | 已解決 |
 | D8 | 雲端 DB 冇任何備份（$0 tier 冇 PITR；n8n 未跑；owner 全部任務＋日曆資料得一份） | 誤刪／Supabase 故障／project 被 suspend = 冇得還 | **Phase 3 開始前**（最少手動 export 一次，存 repo 外） | 待處理 |
 | D9 | ~~work calendar credential 仍係 read-write scope~~ **已於 2026-11-27 解決**。改用 `googleOAuth2Api`（scope 欄位可編輯）建新 credential `GCalWorkRO000001`，scope = `https://www.googleapis.com/auth/calendar.readonly`。實測：讀取 7 個日曆成功、寫入（PATCH）回 **HTTP 403 insufficient authentication scopes**。舊 credential `Shzp0fV22UjLVEew` 已標記 DEPRECATED 並清除無效 token | — | ✅ 2026-11-27 | 已解決 |
 
