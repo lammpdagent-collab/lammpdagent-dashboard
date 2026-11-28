@@ -1,6 +1,8 @@
 // scripts/docs-check.ts — 文件漂移檢查（docs drift check）
 //
-// 契約：openspec/changes/add-docs-drift-check/specs/docs-drift-check/spec.md
+// 契約：tests/docs-check.test.ts（30 個測試釘住行為）+ SYSTEM.md §4 格式契約
+// 註：原 openspec change 已按 Dickson 決定刪除 —— openspec 只收產品功能，
+//     開發工具的行為契約由 tests 管（tests 會跑，spec 只會被讀）。
 // 原則：SYSTEM.md §4 是唯一資料源，本 script 只驗證它，唔另寫路徑清單。
 // 跑法：npm run docs:check（= node --experimental-transform-types scripts/docs-check.ts）
 //       npm run docs:check -- --no-l4（CI：跳過所有 L4 / Hermes profile 檢查）
