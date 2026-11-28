@@ -41,7 +41,7 @@ Hermes 回答 Dickson 的查詢（例如「我下禮拜有咩做」、「老陳�
 {
   "generated_at": "<ISO 8601 with +08:00>",
   "range": { "from": "YYYY-MM-DD", "to": "YYYY-MM-DD" },
-  "sync": { "stale": bool, "reason": string|null },
+  "sync": { "stale": bool, "reason": string|null, "sources": [ { "key": string, "last_run_at": string|null, "status": string|null } ] },
   "events": [ <event>... ],
   "tasks": [ <task>... ]
 }
@@ -49,11 +49,19 @@ Hermes 回答 Dickson 的查詢（例如「我下禮拜有咩做」、「老陳�
 
 `events` SHALL 只含 `start_time` 落在 `[from 00:00 HKT, to+1日 00:00 HKT)` 且 `cancelled_at IS NULL` 的行。
 
+`sync.sources` SHALL 按 `calendar_sync:personal`、`calendar_sync:work` 的固定次序輸出；`system_meta` 缺該 key 時，該項唔出現（唔輸出 null 佔位）。
+
+`events` SHALL 套用與 briefing 相同的跨帳號去重規則（title `trim()` 相同 且 start_time 同一分鐘 → 保留 `work`，只有 personal 則保留）。
+
 `tasks` SHALL NOT 按 `due_date` 過濾 —— 全量 `status='todo'` 且 `deleted_at IS NULL` 的任務都要輸出（查詢「某任務幾時到期」時需要跨 range 查找）。
 
 #### Scenario: events 按 range 過濾
 - **WHEN** `--from 2026-12-01 --to 2026-12-31`
 - **THEN** `events` 只含 12 月的事件（`to` 為含尾日，即到 12-31 23:59 HKT）
+
+#### Scenario: query 結果去重
+- **WHEN** 同一事件在 work 與 personal 都有，且落在 query range 內
+- **THEN** `events` 只保留 work 的一行
 
 #### Scenario: tasks 唔受 range 限制
 - **WHEN** `--from 2026-12-01 --to 2026-12-31`，而有一個任務 `due_date = 2027-03-15`

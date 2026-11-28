@@ -26,18 +26,18 @@ Phase 4 把 `daily-briefing` 的資料源由 Obsidian vault + Google API 直讀�
 
 ### D1 — 查詢層放 repo，唔放 skill
 
-**決定**：新增 `briefing/fetch.py` 在 dashboard repo；skill 只負責「跑 script + 按 template 排版」。
+**決定**：新增 `briefing/fetch.ts` 在 dashboard repo；skill 只負責「跑 script + 按 template 排版」。
 
 **理由**：
 - skill 檔案喺 Hermes profile，改它唔經 OpenSpec、唔可以 opencode 生成、冇 tests
-- script 喺 repo → 可以 `pytest`、可以 `git diff` 審核、可以 opencode 實作
+- script 喺 repo → 可以 `vitest`、可以 `git diff` 審核、可以 opencode 實作
 - 日後 dashboard 或者其他前端要同一個資料視角，可以直接 import
 
-**代價**：skill 要寫死絕對路徑（`C:/Users/User/Documents/GitHub/lammpdagent-dashboard/briefing/fetch.py`）。可接受 —— cron 同機執行。
+**代價**：skill 要寫死絕對路徑（`C:/Users/User/Documents/GitHub/lammpdagent-dashboard/briefing/fetch.ts`）。可接受 —— cron 同機執行。
 
 ### D2 — relevance 判斷在查詢層，唔寫 DB
 
-**決定**：`fetch.py` 用 title keyword + `source_calendar` 規則，即時計算 `linked` / `context` / `noise`，唔更新 `events.relevance`。
+**決定**：`fetch.ts` 用 title keyword + `source_calendar` 規則，即時計算 `linked` / `context` / `noise`，唔更新 `events.relevance`。
 
 **理由**：
 - `calendar-sync` spec 冇要求 sync 填 relevance → 唔填唔係 bug
@@ -58,7 +58,7 @@ Phase 4 把 `daily-briefing` 的資料源由 Obsidian vault + Google API 直讀�
 
 ### D4 — 時間窗全部用 HKT 邊界，查詢用 UTC
 
-**決定**：計算在 Python 內做（`zoneinfo.ZoneInfo("Asia/Hong_Kong")`），轉 UTC ISO 字串後傳 PostgREST。
+**決定**：計算在 TypeScript 內做（`+8 小時` 算術；香港無 DST），轉 UTC ISO 字串（`Z` 尾）後交 `@supabase/supabase-js`。
 
 **理由**：Phase 3 已證實 PostgREST 唔 decode `%2B`（`+08:00` 的 `+`）→ 必須用 `Z` 結尾的 UTC。
 
@@ -81,15 +81,25 @@ Phase 4 把 `daily-briefing` 的資料源由 Obsidian vault + Google API 直讀�
 ### D6 — 跨 profile 邊界：實作分兩段
 
 **決定**：
-- 本 session（`coding` profile）負責：`briefing/fetch.py`、`tests/test_briefing.py`、spec、design
+- 本 session（`coding` profile）負責：`briefing/fetch.ts`、`tests/briefing.test.ts`、spec、design
 - 修改 `personal-assistant` 的 SKILL.md 與 cron **需要 Dickson 明示批准**（跨 profile 寫入）
 - 具體做法：把新 SKILL.md 內容寫成 repo 內的 `briefing/SKILL.patch.md`（或 diff），由 Dickson 或者 personal-assistant session 套用
 
 **理由**：系統邊界明確規定「do NOT modify another profile's skills/plugins/cron/memories unless the user explicitly directs you to」。
 
+### D6b — 已知限制：遠期 context 事件唔顯示
+
+**決定**：`context` 事件的顯示窗只到「後日」（第 3 日 00:00 HKT）。落在 `[第3日, 第8日)` 的 context 事件，morning 的 `today` 同 `upcoming` 兩個窗口都唔收 → **靜默消失**。
+
+**理由**：`context` 的定義係「可能相關但未確認」，只值得睇 2 日。遠期的事件若無 keyword 命中，本來就唔應該佔 briefing 版面。
+
+**代價**：使用者可能在 5 日後完全唔知有「行政會議」等事件。補救方法係日後加 keyword，或者用 query mode 主動查。
+
+**明確唔做**：唔加「其他事件」區塊，唔降低門檻 —— 呢個係設計取捨，唔係 bug。
+
 ### D7 — 新鮮度門檻 26 小時
 
-**決定**：`last_run_at` 距今 ≥ 26 小時 → `stale = true`。
+**決定**：`last_run_at` 距今 **超過** 26 小時 → `stale = true`（26 小時整 = fresh）。
 
 **理由**：
 - 整點排程每小時一次 → 正常最長滯後 1 小時
@@ -116,7 +126,7 @@ Phase 4 把 `daily-briefing` 的資料源由 Obsidian vault + Google API 直讀�
 
 ## Migration Plan
 
-1. 實作 `briefing/fetch.py` + tests（repo，經 opencode）
+1. 實作 `briefing/fetch.ts` + tests（repo，經 opencode）
 2. 驗證：手動跑 script，同現役 briefing 並排對比 3 日
 3. Dickson 批准後，改 `personal-assistant` 的 SKILL.md（資料讀取段落）
 4. 觀察 1 週：兩套並存（舊 cron 停用但 skill 保留 fallback）
@@ -158,7 +168,7 @@ Phase 4 把 `daily-briefing` 的資料源由 Obsidian vault + Google API 直讀�
 **理由**（Dickson 原話）：「我想舊vault 仍然保持運作，按照舊模式寫入、link，但係唔再作為source，在新系統中無任何角色。佢只係我想睇下到學年尾到底會變成點而保留」
 
 **具體含義**：
-- `briefing/fetch.py` 唔讀 vault
+- `briefing/fetch.ts` 唔讀 vault
 - `daily-briefing` skill 唔讀 vault
 - Dashboard 唔讀 vault
 - Vault 停止更新唔影響任何系統功能
@@ -178,12 +188,12 @@ Phase 4 把 `daily-briefing` 的資料源由 Obsidian vault + Google API 直讀�
 
 ### D13 — 被動查詢（MODE 3）改讀 Supabase
 
-**決定**：MODE 3 由「查 vault + Google Calendar + Hindsight」改為「查 Supabase（`fetch.py --mode query`）+ Hindsight」。
+**決定**：MODE 3 由「查 vault + Google Calendar + Hindsight」改為「查 Supabase（`fetch.ts --mode query`）+ Hindsight」。
 
 **理由**：
 - Phase 4 之後 vault 只由 subagent 寫入，可能落後（subagent 失敗就完全唔更新）
 - 查 vault 會答過期資料，比唔答更差
-- 用同一資料層（`fetch.py`）避免重複實作時間窗與 PostgREST 參數組法
+- 用同一資料層（`fetch.ts`）避免重複實作時間窗與 PostgREST 參數組法
 
 **代價**：
 - 擴大 Phase 4 範圍（多一個 CLI mode + 多一套查詢邏輯）

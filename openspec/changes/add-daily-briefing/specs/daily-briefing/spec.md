@@ -2,16 +2,16 @@
 
 ### Requirement: Briefing 資料新鮮度檢查
 
-Briefing 查詢層 SHALL 讀取 `system_meta` 的 `calendar_sync:personal` 與 `calendar_sync:work` 兩筆記錄，並將 `last_run_at` 與當前時間一併輸出，令上游可判斷資料是否新鮮。
+Briefing 查詢層 SHALL 讀取 `system_meta` 的 `calendar_sync:personal` 與 `calendar_sync:work` 兩筆記錄，並將每筆的 `key`、`last_run_at`（絕對時間，UTC ISO 8601）、`status` 一併輸出（`sync.sources`），令上游可判斷資料是否新鮮及追溯來源。
 
-「新鮮」定義：`last_run_at` 距今唔超過 26 小時（覆蓋整點 90 天排程 + 半天寬限）。
+「新鮮」定義：`last_run_at` 距今 **超過** 26 小時才算 stale（26 小時整 = fresh）。覆蓋整點 90 天排程 + 半天寬限。
 
 #### Scenario: 兩帳號皆新鮮
 - **WHEN** 兩個 `calendar_sync:*` 記錄 `status = 'ok'` 且 `last_run_at` 距今 < 26 小時
 - **THEN** 輸出的 `sync.stale` 為 `false`
 
 #### Scenario: 任一帳號過期
-- **WHEN** 任一 `calendar_sync:*` 記錄的 `last_run_at` 距今 ≥ 26 小時
+- **WHEN** 任一 `calendar_sync:*` 記錄的 `last_run_at` 距今 **超過** 26 小時
 - **THEN** 輸出的 `sync.stale` 為 `true`，且 `sync.reason` 指明哪個帳號過期及其 `last_run_at`
 
 #### Scenario: 任一帳號上次失敗
@@ -80,6 +80,37 @@ Briefing 查詢層 SHALL 輸出「即將到」的事件集合，按相關性分�
 - **WHEN** title 為 `Day B`（半形）或 `DayＢ`（全形）
 - **THEN** 兩者都被判定為 `noise`
 
+
+### Requirement: 事件去重（跨帳號）
+
+Briefing 的 `today` 與 `upcoming` 陣列 SHALL 移除跨帳號重複的事件。
+
+兩個事件視為重複的條件：`title`（`trim()` 後）完全相同 **且** `start_time` 落在同一分鐘（YYYY-MM-DDTHH:MM）。
+
+去重時 SHALL 保留 `account_key = 'work'` 的那一行（刪除 personal 的重複）；若只有 personal，則保留 personal。
+
+比較 SHALL 大小寫敏感、空白敏感（唔做模糊匹配）—— 字面不同的 title（例如 `（汪譚健雯莉）` vs `（汪譚健雯穎莉）`）SHALL NOT 被視為重複。
+
+#### Scenario: work 與 personal 有同一事件
+- **WHEN** 同一事件在 `work` 與 `personal` 都有（title 相同、start_time 同一分鐘）
+- **THEN** 輸出只保留 `account_key = 'work'` 的一行
+
+#### Scenario: 只有 personal 的事件
+- **WHEN** 一個事件只在 `personal` 有（例如 `觀課：高3A人文`）
+- **THEN** 它保留在輸出內（唔會被刪）
+
+#### Scenario: title 串法不同
+- **WHEN** 兩個事件 title 分別為 `賣書日（汪譚健雯莉）` 與 `賣書日（汪譚健雯穎莉）`，start_time 同一分鐘
+- **THEN** 兩行都保留（唔視為重複）
+
+#### Scenario: 同一帳號內的真重複
+- **WHEN** `work` 帳號內有兩個 title 與 start_time 都相同的事件（理論上唔應該發生，但 Google 可能返回重複 instance）
+- **THEN** 只保留一行
+
+#### Scenario: 去重唔影響排序
+- **WHEN** 去重後
+- **THEN** `today` / `upcoming` 仍按 `is_all_day DESC` → `start_time ASC` → `id ASC` 排序
+
 ### Requirement: 循環日查詢
 
 Briefing 查詢層 SHALL 讀取 `cycle_days` 表，輸出今日與明日（若存在）的 `day_label`。
@@ -131,13 +162,24 @@ Briefing 查詢層 SHALL 輸出所有 `status = 'todo'` 且 `deleted_at IS NULL`
 
 ### Requirement: Afternoon 模式窗口
 
-`briefing/fetch --mode afternoon` SHALL 只輸出**今日 13:00 HKT 起**的事件（`start_time >= 今日 13:00 HKT` 且 `start_time < 明日 00:00 HKT`），唔報已經過去的事件。
+`briefing/fetch --mode afternoon` SHALL 輸出符合以下條件的事件（`cancelled_at IS NULL`）：
+
+- `start_time >= 今日 13:00 HKT` 且 `start_time < 明日 00:00 HKT`，**或**
+- `is_all_day = true` 且 `start_time` 落在今日（`[今日 00:00 HKT, 明日 00:00 HKT)`）
+
+理由：全日事件（假期、校曆活動、賣旗日）的 `start_time` 永遠係當日 00:00，若只按 `>= 13:00` 過濾會**結構性漏掉全部全日事件**（review MAJOR #2）。
+
+非全日且已過去的事件（`start_time < 13:00`）仍然唔報。
 
 任務分組與 morning 相同（四級全量），循環日同樣輸出（供 skill 顯示「聽日」）。
 
-#### Scenario: 13:00 前的事件唔出現
-- **WHEN** 今日有一個 09:00 事件
+#### Scenario: 13:00 前的非全日事件唔出現
+- **WHEN** 今日有一個 09:00 的非全日事件
 - **THEN** `--mode afternoon` 的 `today` 陣列唔包含它
+
+#### Scenario: 全日事件一定出現（無論時間）
+- **WHEN** 今日有一個 `is_all_day = true` 的「假期」事件（`start_time` 為今日 00:00 HKT）
+- **THEN** `--mode afternoon` 的 `today` 陣列**包含**它
 
 #### Scenario: 13:00 後的事件出現
 - **WHEN** 今日有一個 15:00 事件
@@ -156,7 +198,7 @@ Briefing 查詢層 SHALL 輸出單一 JSON 物件到 stdout，包含以下鍵：
   "generated_at": "<ISO 8601 with +08:00>",
   "date": "<YYYY-MM-DD, HKT>",
   "weekday": "<星期一…星期日>",
-  "sync": { "stale": bool, "reason": string|null },
+  "sync": { "stale": bool, "reason": string|null, "sources": [ { "key": string, "last_run_at": string|null, "status": string|null } ] },
   "cycle": { "today": string|null, "tomorrow": string|null },
   "today": [ <event>... ],
   "upcoming": [ <event>... ],

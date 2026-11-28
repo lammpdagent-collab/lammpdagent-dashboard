@@ -2,27 +2,27 @@
 
 ## 1. 查詢層實作（repo）
 
-- [ ] 1.1 建 `briefing/fetch.py`：讀 `.env`、計算 HKT 時間窗、組 PostgREST 請求
-- [ ] 1.2 實作 `fetch_sync_status()` — 讀 `system_meta`，判定 stale（>26h 或 status=error）
-- [ ] 1.3 實作 `fetch_cycle_days()` — 讀 `cycle_days`，取今日 + 明日 `day_label`
-- [ ] 1.4 實作 `fetch_events()` — 今日窗 + 即將到窗（linked 7d / context 2d），統一用 `and=(...)`
-- [ ] 1.5 實作 `classify_relevance()` — noise（`^Day\s*[A-FＡ-Ｆ]`）/ linked（keyword）/ context
-- [ ] 1.6 實作 `fetch_tasks()` — 四級分組、pinned 優先、overdue 標記
-- [ ] 1.7 實作 JSON 輸出 + stderr 分流 + 非零 exit
-- [ ] 1.8 CLI 參數：`--mode morning|afternoon|manual`
+- [x] 1.1 建 `briefing/fetch.ts`：讀 `.env`、計算 HKT 時間窗、組 supabase-js 查詢
+- [x] 1.2 實作 `fetch_sync_status()` — 讀 `system_meta`，判定 stale（>26h 或 status=error）
+- [x] 1.3 實作 `fetch_cycle_days()` — 讀 `cycle_days`，取今日 + 明日 `day_label`
+- [x] 1.4 實作 `fetch_events()` — 今日窗 + 即將到窗（linked 7d / context 2d），統一用 `and=(...)`
+- [x] 1.5 實作 `classify_relevance()` — noise（`^Day\s*[A-FＡ-Ｆ]`）/ linked（keyword）/ context
+- [x] 1.6 實作 `fetch_tasks()` — 四級分組、pinned 優先、overdue 標記
+- [x] 1.7 實作 JSON 輸出 + stderr 分流 + 非零 exit
+- [x] 1.8 CLI 參數：`--mode morning|afternoon|query --from --to`
 
 ## 2. 測試（唔連 DB）
 
-- [ ] 2.1 `tests/test_briefing.py`：時間窗邊界（午夜、跨日、HKT 與 UTC）
-- [ ] 2.2 relevance 分類：全形/半形 Day、keyword 命中、fallback context
-- [ ] 2.3 任務排序：pinned 優先、due_date NULLS LAST、overdue 標記
-- [ ] 2.4 stale 判定：ok+fresh / ok+stale / error / 冇記錄
-- [ ] 2.5 JSON 契約：所有鍵存在、型別正確、空陣列唔係 null
+- [x] 2.1 `tests/briefing.test.ts`：時間窗邊界（午夜、跨日、HKT 與 UTC）
+- [x] 2.2 relevance 分類：全形/半形 Day、keyword 命中、fallback context
+- [x] 2.3 任務排序：pinned 優先、due_date NULLS LAST、overdue 標記
+- [x] 2.4 stale 判定：ok+fresh / ok+stale / error / 冇記錄
+- [x] 2.5 JSON 契約：所有鍵存在、型別正確、空陣列唔係 null
 
 ## 3. 驗證（真實 DB）
 
-- [ ] 3.1 手動跑 `python briefing/fetch.py`，確認輸出合法 JSON
-- [ ] 3.2 對照真實 DB：今日 events 數量與 dashboard 一致
+- [x] 3.1 手動跑 `node briefing/fetch.ts`，確認輸出合法 JSON
+- [x] 3.2 對照真實 DB：今日 events 數量與 dashboard 一致
 - [ ] 3.3 對照現役 briefing：並排比較 3 日輸出
 - [ ] 3.4 stale 情境測試：臨時改 `system_meta.last_run_at` 為 30 小時前 → 確認 `stale: true`（測試後還原）
 
@@ -38,7 +38,7 @@
 ## 5. Capture 雙寫（Supabase 優先）
 
 - [ ] 5.1 寫 `briefing/SOUL.patch.md`：capture 流程改為「先 POST Supabase → 立即回覆 → subagent 寫 vault」
-- [ ] 5.2 實作 Supabase 寫入輔助（`briefing/write.py` 或 SOUL 內指示）：`POST /rest/v1/tasks` 與 `/rest/v1/events`
+- [ ] 5.2 實作 Supabase 寫入輔助（SOUL 內指示（用 `@supabase/supabase-js` 經 HTTP））：`POST /rest/v1/tasks` 與 `/rest/v1/events`
 - [ ] 5.3 定義 subagent prompt：分類規則、vault 路徑、`🔗` link、auto-match，且明確禁止寫 Supabase
 - [ ] 5.4 **Dickson 批准**跨 profile 寫入 SOUL.md
 - [ ] 5.5 備份 `personal-assistant/SOUL.md`
@@ -48,14 +48,14 @@
 
 ## 6. 被動查詢（MODE 3）
 
-- [ ] 6.1 `fetch.py` 加 `--mode query --from --to`
-- [ ] 6.2 範圍驗證（>366 日 → 非零 exit）
-- [ ] 6.3 測試：過去月份、遠期季度、範圍過大
+- [x] 6.1 `fetch.ts` 加 `--mode query --from --to`
+- [x] 6.2 範圍驗證（>366 日 → 非零 exit）
+- [x] 6.3 測試：過去月份、遠期季度、範圍過大
 - [ ] 6.4 SOUL.patch.md 加 MODE 3 改動段落
 
 ## 7. Vault 角色驗證
 
-- [ ] 7.1 確認 `fetch.py` 冇讀 vault 的路徑
+- [ ] 7.1 確認 `fetch.ts` 冇讀 vault 的路徑
 - [ ] 7.2 確認 `daily-briefing` skill 新版本冇讀 vault
 - [ ] 7.3 暫停 vault 寫入 24 小時，確認 briefing / dashboard 照常運作
 

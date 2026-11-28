@@ -12,10 +12,10 @@ Phase 4 打通兩邊：**Supabase 成為唯一真相**，vault 降級為「觀�
 ## What Changes
 
 **A. Briefing 讀取（純讀）**
-- 新增 `briefing/fetch.py`：讀 Supabase，輸出結構化 JSON（今日 events、將要到 events、任務四級分組、循環日、sync 新鮮度）
+- 新增 `briefing/fetch.ts`：讀 Supabase，輸出結構化 JSON（今日 events、將要到 events、任務四級分組、循環日、sync 新鮮度）
 - 改 `daily-briefing` skill：由「讀 vault + GAPI 直讀」改為「跑 script 取 JSON」；template 段落不變
 - cron 維持 0700 + 1300
-- 相關性判斷在查詢層做：`events.relevance` 目前全部係 `context`（`calendar-sync` spec 冇要求填它），`fetch.py` 用 title keyword + `Day A-F` 正則即時計算 `linked` / `noise` / `context`，**唔改 DB、唔加 migration**
+- 相關性判斷在查詢層做：`events.relevance` 目前全部係 `context`（`calendar-sync` spec 冇要求填它），`fetch.ts` 用 title keyword + `Day A-F` 正則即時計算 `linked` / `noise` / `context`，**唔改 DB、唔加 migration**
 
 **B. Capture 寫入（雙寫，Supabase 優先）**
 - Capture 收到 → **先** POST Supabase（`tasks` 或 `events`）
@@ -25,7 +25,7 @@ Phase 4 打通兩邊：**Supabase 成為唯一真相**，vault 降級為「觀�
 
 **C. 被動查詢改讀 Supabase**
 - MODE 3（「我下禮拜有咩做」）由查 vault 改為查 Supabase
-- `fetch.py` 支援 `--mode query --from --to`（任意範圍，唔受 briefing 窗口限制）
+- `fetch.ts` 支援 `--mode query --from --to`（任意範圍，唔受 briefing 窗口限制）
 - 範圍上限 366 日（防止拉全表）
 
 **D. Vault 角色限定**
@@ -52,8 +52,8 @@ Phase 4 打通兩邊：**Supabase 成為唯一真相**，vault 降級為「觀�
 ## Impact
 
 **新增檔案（repo）**
-- `briefing/fetch.py` — Supabase 查詢 + JSON 輸出
-- `tests/test_briefing.py` — 查詢邏輯測試（fixture，唔連 DB）
+- `briefing/fetch.ts` — Supabase 查詢 + JSON 輸出
+- `tests/briefing.test.ts` — 查詢邏輯測試（fixture，唔連 DB）
 - `briefing/SKILL.patch.md` — 新 SKILL.md 的資料讀取段落（供套用）
 - `briefing/SOUL.patch.md` — SOUL.md 的 capture 段落改動（供套用）
 
@@ -63,7 +63,7 @@ Phase 4 打通兩邊：**Supabase 成為唯一真相**，vault 降級為「觀�
 - `personal-assistant/cron/jobs.json` — 兩個早報 job 的 prompt 改為呼叫新流程
 
 **依賴**
-- Python 3（已有）；`urllib`、`zoneinfo`（stdlib）
+- Node v22.22.3（已裝，可直接跑 `.ts`）；TypeScript 7.0.2 + vitest 5.1.1（已有）；`@supabase/supabase-js` 2.119.2（已裝）
 - 讀 `.env` 的 `VITE_SUPABASE_URL` + `SUPABASE_SERVICE_ROLE_KEY`（已有）
 - Hermes `delegate_task` tool（已有）
 
