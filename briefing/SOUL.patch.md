@@ -223,8 +223,8 @@ Supabase 成功 + 已回覆後，用 `delegate_task` 開一個 subagent 做 vaul
 
 ```markdown
 讀取來源（**Supabase，唔讀 vault**）：
-1. `briefing/fetch.py` — 跑 `python C:/Users/User/Documents/GitHub/lammpdagent-dashboard/briefing/fetch.py --mode morning`
-2. 輸出的 JSON 已包含：今日 events、即將到（linked 7日 / context 2日）、任務四級分組、循環日、sync 新鮮度
+1. `briefing/fetch.ts` — 跑 `node C:/Users/User/Documents/GitHub/lammpdagent-dashboard/briefing/fetch.ts --mode morning`
+2. 輸出的 JSON 已包含：今日 events（**已跨帳號去重**，work 優先）、即將到（linked 7日 / context 2日，**已去重**）、任務四級分組、循環日、sync 新鮮度 + `sync.sources`（每帳號的絕對 `last_run_at`）
 3. **唔讀** `任務.md` / `事件.md` / `收件箱.md`（vault 已降級為標本）
 
 ⚠️ `#waiting` 同「收件箱」在新 schema 冇對應概念 → briefing 唔再顯示該兩段。
@@ -245,7 +245,7 @@ Supabase 成功 + 已回覆後，用 `delegate_task` 開一個 subagent 做 vaul
 
 ```markdown
 讀取來源（**Supabase**）：
-1. `briefing/fetch.py --mode afternoon` — 只取 1300 打後嘅 event
+1. `briefing/fetch.ts --mode afternoon` — 取 1300 打後嘅 event **+ 今日所有全日事件**（假期、校曆活動，無論時間）
 2. JSON 內 `tasks` 未完成項目
 3. **唔報** waiting / 收件箱（新 schema 冇）
 ```
@@ -275,7 +275,7 @@ Supabase 成功 + 已回覆後，用 `delegate_task` 開一個 subagent 做 vaul
 
 **查詢方法**：
 ```
-python C:/Users/User/Documents/GitHub/lammpdagent-dashboard/briefing/fetch.py \
+node C:/Users/User/Documents/GitHub/lammpdagent-dashboard/briefing/fetch.ts \
   --mode query --from YYYY-MM-DD --to YYYY-MM-DD
 ```
 
